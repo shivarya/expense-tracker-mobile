@@ -1,0 +1,115 @@
+import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+interface User {
+  id: number;
+  email: string;
+  name: string;
+  picture?: string;
+  google_id?: string;
+}
+
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  loginWithGoogle: (idToken: string) => Promise<void>;
+  logout: () => Promise<void>;
+  updateUser: (userData: Partial<User>) => void;
+}
+
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Check if user is logged in on app start
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const userData = await AsyncStorage.getItem('user_data');
+
+      if (token && userData) {
+        setUser(JSON.parse(userData));
+      }
+    } catch (error) {
+      console.error('[AuthContext] checkAuth error:', error);
+      // Silent fail - user will be logged out
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithGoogle = async (idToken: string) => {
+    try {
+      // Import API service dynamically to avoid circular dependency
+      const ApiService = (await import('../services/api')).default;
+      const response = await ApiService.googleLogin(idToken) as any;
+
+      if (response.success && response.data) {
+        const { token, user: userData } = response.data;
+
+        // Save to AsyncStorage
+        await AsyncStorage.setItem('auth_token', token);
+        await AsyncStorage.setItem('user_data', JSON.stringify(userData));
+
+        setUser(userData);
+      } else {
+        throw new Error(response.error || 'Login failed');
+      }
+    } catch (error) {
+      console.error('[AuthContext] Login error:', error);
+      throw error;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await AsyncStorage.removeItem('auth_token');
+      await AsyncStorage.removeItem('user_data');
+      setUser(null);
+    } catch (error) {
+      console.error('[AuthContext] Logout error:', error);
+    }
+  };
+
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
+      AsyncStorage.setItem('user_data', JSON.stringify(updatedUser));
+    }
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        loginWithGoogle,
+        logout,
+        updateUser,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export type { User };
