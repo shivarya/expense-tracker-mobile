@@ -1,7 +1,61 @@
-.expo/
+# Dependencies
 node_modules/
-.env
-.DS_Store
+.pnp
+.pnp.js
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+web-build/
+
+# Native builds
 android/
 ios/
+*.apk
+*.aab
+*.ipa
+
+# Environment
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Testing
+coverage/
+.nyc_output
+
+# Credentials & Keys
+credentials/
+*.key
+*.pem
+*.p12
+*.mobileprovision
+*.jks
+keystore.properties
+google-services.json
+GoogleService-Info.plist
+
+# Temporary
+*.tmp
+.cache
