@@ -16,14 +16,14 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.expensetracker.app"
+      "bundleIdentifier": "dev.shivarya.expensetracker"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.expensetracker.app",
+      "package": "dev.shivarya.expensetracker",
       "permissions": [
         "READ_SMS",
         "RECEIVE_SMS",

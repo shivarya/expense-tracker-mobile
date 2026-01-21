@@ -7,12 +7,12 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import Constants from 'expo-constants';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { useAuth } from '../contexts/AuthContext';
 
-// TODO: Add your Google Client ID from Google Cloud Console
-// Get it from: https://console.cloud.google.com/
-const GOOGLE_WEB_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE';
+// Get Google Client ID from app config (loaded from .env)
+const GOOGLE_WEB_CLIENT_ID = Constants.expoConfig?.extra?.googleClientId || '';
 
 const LoginScreen: React.FC = () => {
   const { loginWithGoogle } = useAuth();
