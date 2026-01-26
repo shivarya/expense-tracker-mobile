@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { api } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import api from '../services/api';
 
 const LAST_GMAIL_SYNC_KEY = 'gmail_last_sync_timestamp';
 
@@ -27,7 +28,7 @@ export const useGmailSync = () => {
 
   const checkAuthorization = async () => {
     try {
-      const response = await api.get('/api/parse/email/gmail/status');
+      const response = await api.getGmailStatus();
       setIsAuthorized(response.data?.authorized || false);
     } catch (error) {
       console.error('Failed to check Gmail authorization:', error);
@@ -37,7 +38,7 @@ export const useGmailSync = () => {
 
   const authorizeGmail = async (): Promise<{ success: boolean; authUrl?: string; error?: string }> => {
     try {
-      const response = await api.get('/api/parse/email/gmail/setup');
+      const response = await api.getGmailAuthSetup();
       
       if (response.data.success && response.data.data?.authUrl) {
         return {
@@ -73,7 +74,7 @@ export const useGmailSync = () => {
 
     try {
       // Call the Gmail fetch endpoint
-      const response = await api.post('/api/parse/email/gmail/fetch', {
+      const response = await api.fetchGmailEmails({
         maxResults: 50, // Fetch last 50 emails
         query: 'from:(camsonline.com OR kfintech.com) subject:(statement OR account statement)'
       });

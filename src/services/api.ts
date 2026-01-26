@@ -267,6 +267,19 @@ class ApiService {
     return response.data;
   }
 
+  // Gmail Sync
+  async getGmailStatus() {
+    return await this.api.get('/api/parse/email/gmail/status');
+  }
+
+  async getGmailAuthSetup() {
+    return await this.api.get('/api/parse/email/gmail/setup');
+  }
+
+  async fetchGmailEmails(params: { maxResults?: number; query?: string }) {
+    return await this.api.post('/api/parse/email/gmail/fetch', params);
+  }
+
   async login() {
     const response = await this.api.post('/auth/login', {});
     if (response.data.success && response.data.data.token) {
