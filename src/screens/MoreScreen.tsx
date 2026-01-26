@@ -1,15 +1,19 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
+import { useSMSSync } from '../hooks/useSMSSync';
+import { useData } from '../contexts/DataContext';
 
 const MoreScreen = () => {
   const { theme, setTheme, isDark, colors } = useTheme();
+  const { syncSMS, isSyncing, lastSyncTime } = useSMSSync();
+  const { refreshAll } = useData();
+  const [syncResult, setSyncResult] = useState<string | null>(null);
   
   const menuItems = [
     { id: 'emis', icon: 'cash-outline', label: 'EMI Tracking', screen: 'EMIs' },
     { id: 'categories', icon: 'pricetags-outline', label: 'Categories', screen: 'Categories' },
-    { id: 'sync', icon: 'sync-outline', label: 'Sync Data', screen: 'Sync' },
     { id: 'settings', icon: 'settings-outline', label: 'Settings', screen: 'Settings' },
   ];
 
@@ -17,8 +21,71 @@ const MoreScreen = () => {
     setTheme(value);
   };
 
+  const handleSyncSMS = async () => {
+    try {
+      setSyncResult(null);
+      const result = await syncSMS();
+      
+      if (result.success) {
+        const message = `SMS Sync Complete!\n\nFound: ${result.count} bank SMS\nParsed: ${result.parsed} transactions\nSaved: ${result.saved} new\nSkipped: ${result.skipped} duplicates`;
+        setSyncResult(message);
+        Alert.alert('Success', message);
+        
+        // Refresh data to show new transactions
+        await refreshAll();
+      }
+    } catch (error: any) {
+      const errorMsg = error.message || 'Failed to sync SMS';
+      Alert.alert('Error', errorMsg);
+      setSyncResult(`Error: ${errorMsg}`);
+    }
+  };
+
+  const formatLastSync = () => {
+    if (!lastSyncTime) return 'Never';
+    const date = new Date(lastSyncTime);
+    return date.toLocaleString();
+  };
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* SMS Sync Section */}
+      <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Data Sync</Text>
+        
+        <TouchableOpacity
+          style={[styles.syncButton, { backgroundColor: isSyncing ? colors.border : colors.primary }]}
+          onPress={handleSyncSMS}
+          disabled={isSyncing}
+        >
+          {isSyncing ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Ionicons name="phone-portrait-outline" size={24} color="#fff" />
+              <Text style={styles.syncButtonText}>Sync SMS Transactions</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <View style={styles.syncInfo}>
+          <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
+            Last synced: {formatLastSync()}
+          </Text>
+          {syncResult && (
+            <Text style={[styles.syncResult, { color: colors.text }]}>
+              {syncResult}
+            </Text>
+          )}
+        </View>
+
+        <View style={[styles.infoCard, { borderBottomColor: colors.border }]}>
+          <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+            Automatically reads bank SMS from your phone and creates expense transactions using AI.
+          </Text>
+        </View>
+      </View>
+
       {/* Theme Settings */}
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Appearance</Text>
@@ -190,6 +257,34 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: 14,
     lineHeight: 24,
+  },
+  syncButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  syncButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 12,
+  },
+  syncInfo: {
+    marginBottom: 12,
+  },
+  syncInfoText: {
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  syncResult: {
+    fontSize: 12,
+    lineHeight: 18,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
   },
 });
 

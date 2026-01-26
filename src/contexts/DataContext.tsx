@@ -3,6 +3,7 @@ import { DashboardData } from '../types/dashboard';
 import { Investments } from '../types/investments';
 import { BankAccount, Category } from '../types/transactions';
 import ApiService from '../services/api';
+import { useAuth } from './AuthContext';
 
 interface DataContextType {
   dashboard: DashboardData | null;
@@ -21,6 +22,7 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [investments, setInvestments] = useState<Investments | null>(null);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
@@ -96,10 +98,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     ]);
   };
 
-  // Load initial data
+  // Load initial data only when user is authenticated
   useEffect(() => {
-    refreshAll();
-  }, []);
+    if (user) {
+      console.log('[DataContext] User authenticated, fetching data...');
+      refreshAll();
+    } else {
+      console.log('[DataContext] No user, skipping data fetch');
+    }
+  }, [user]);
 
   return (
     <DataContext.Provider

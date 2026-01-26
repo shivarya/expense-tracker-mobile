@@ -50,14 +50,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const loginWithGoogle = async (idToken: string) => {
     try {
-      // Import API service dynamically to avoid circular dependency
       const ApiService = (await import('../services/api')).default;
       const response = await ApiService.googleLogin(idToken) as any;
 
       if (response.success && response.data) {
         const { token, user: userData } = response.data;
 
-        // Save to AsyncStorage
         await AsyncStorage.setItem('auth_token', token);
         await AsyncStorage.setItem('user_data', JSON.stringify(userData));
 
