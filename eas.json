@@ -1,38 +1,18 @@
 {
   "cli": {
-    "version": ">= 5.2.0"
+    "version": ">= 15.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal",
-      "android": {
-        "gradleCommand": ":app:assembleDebug",
-        "buildType": "apk"
-      }
+      "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      }
+      "distribution": "internal"
     },
     "production": {
-      "android": {
-        "buildType": "aab"
-      },
-      "env": {
-        "API_URL": "https://api.expensetracker.yourdomain.com",
-        "GOOGLE_WEB_CLIENT_ID": "your-production-client-id.apps.googleusercontent.com"
-      }
-    }
-  },
-  "submit": {
-    "production": {
-      "android": {
-        "serviceAccountKeyPath": "./google-play-service-account.json",
-        "track": "internal"
-      }
+      "autoIncrement": true
     }
   }
 }

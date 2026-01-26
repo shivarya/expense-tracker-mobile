@@ -13,6 +13,7 @@ module.exports = ({ config }) => ({
   expo: {
     ...appJson.expo,
     extra: {
+      ...appJson.expo?.extra, // Preserve existing properties including eas.projectId
       apiUrlDev: API_URL_DEV,
       apiUrlProd: API_URL_PROD,
       enableApiDebug: ENABLE_API_DEBUG,

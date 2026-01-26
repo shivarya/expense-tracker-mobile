@@ -1,20 +1,18 @@
 {
   "expo": {
     "name": "Expense Tracker",
-    "slug": "expense-tracker",
+    "slug": "expense-tracker-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "automatic",
+    "icon": "./assets/images/icon.png",
     "scheme": "expensetracker",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#4CAF50"
+      "backgroundColor": "#FFFFFF"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "dev.shivarya.expensetracker",
@@ -22,8 +20,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#4CAF50"
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
       },
       "package": "dev.shivarya.expensetracker",
       "versionCode": 1,
@@ -31,21 +29,24 @@
         "READ_SMS",
         "RECEIVE_SMS",
         "INTERNET",
-        "ACCESS_NETWORK_STATE"
-      ],
-      "googleServicesFile": "./google-services.json"
+        "ACCESS_NETWORK_STATE",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      [
-        "@react-native-google-signin/google-signin"
-      ]
+      "@react-native-google-signin/google-signin"
     ],
     "extra": {
+      "apiUrl": "https://shivarya.dev/expense_tracker",
+      "googleClientId": "473762682694-temn315hduj5tmvprin69srkrr5kdqpl.apps.googleusercontent.com",
+      "apiUrlDev": "http://10.0.2.2:8000",
+      "apiUrlProd": "https://your-production-url.com/api",
+      "enableApiDebug": true,
       "eas": {
-        "projectId": "your-project-id-here"
+        "projectId": "1497933e-c12f-40b0-9cfa-8f2570b53fd0"
       }
     }
   }
