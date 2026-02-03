@@ -267,17 +267,9 @@ class ApiService {
     return response.data;
   }
 
-  // Gmail Sync
-  async getGmailStatus() {
-    return await this.api.get('/api/parse/email/gmail/status');
-  }
-
-  async getGmailAuthSetup() {
-    return await this.api.get('/api/parse/email/gmail/setup');
-  }
-
-  async fetchGmailEmails(params: { maxResults?: number; query?: string }) {
-    return await this.api.post('/api/parse/email/gmail/fetch', params);
+  // SMS Sync
+  async parseSMS(messages: Array<{ sender: string; body: string; date: string }>) {
+    return await this.api.post('/parse/sms', { messages });
   }
 
   async login() {

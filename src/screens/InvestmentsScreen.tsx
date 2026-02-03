@@ -63,11 +63,17 @@ const InvestmentsScreen = () => {
               <Text
                 style={[
                   styles.investmentGain,
-                  { color: stock.gain_loss_percent >= 0 ? '#4CAF50' : '#F44336' },
+                  { color: (Number(stock.gain_loss_percent) || 0) >= 0 ? '#4CAF50' : '#F44336' },
                 ]}
               >
-                {stock.gain_loss_percent >= 0 ? '+' : ''}
-                {stock.gain_loss_percent.toFixed(2)}%
+                {stock.gain_loss_percent != null && !isNaN(Number(stock.gain_loss_percent)) ? (
+                  <>
+                    {Number(stock.gain_loss_percent) >= 0 ? '+' : ''}
+                    {Number(stock.gain_loss_percent).toFixed(2)}%
+                  </>
+                ) : (
+                  'N/A'
+                )}
               </Text>
             </View>
           </View>
@@ -105,11 +111,17 @@ const InvestmentsScreen = () => {
               <Text
                 style={[
                   styles.investmentGain,
-                  { color: fund.gain_loss_percent >= 0 ? '#4CAF50' : '#F44336' },
+                  { color: (Number(fund.gain_loss_percent) || 0) >= 0 ? '#4CAF50' : '#F44336' },
                 ]}
               >
-                {fund.gain_loss_percent >= 0 ? '+' : ''}
-                {fund.gain_loss_percent.toFixed(2)}%
+                {fund.gain_loss_percent != null && !isNaN(Number(fund.gain_loss_percent)) ? (
+                  <>
+                    {Number(fund.gain_loss_percent) >= 0 ? '+' : ''}
+                    {Number(fund.gain_loss_percent).toFixed(2)}%
+                  </>
+                ) : (
+                  'N/A'
+                )}
               </Text>
             </View>
           </View>
@@ -205,17 +217,21 @@ const InvestmentsScreen = () => {
   const getGainLossData = () => {
     let data: any[] = [];
     if (activeTab === 'stocks') {
-      data = investments?.stocks.map((stock) => ({
-        value: Math.abs(stock.gain_loss_percent),
-        label: stock.symbol.substring(0, 5),
-        frontColor: stock.gain_loss_percent >= 0 ? '#4CAF50' : '#F44336',
-      })) || [];
+      data = investments?.stocks
+        .filter(stock => stock.gain_loss_percent != null)
+        .map((stock) => ({
+          value: Math.abs(stock.gain_loss_percent),
+          label: stock.symbol.substring(0, 5),
+          frontColor: stock.gain_loss_percent >= 0 ? '#4CAF50' : '#F44336',
+        })) || [];
     } else if (activeTab === 'mf') {
-      data = investments?.mutual_funds.map((fund) => ({
-        value: Math.abs(fund.gain_loss_percent),
-        label: fund.fund_name.substring(0, 10),
-        frontColor: fund.gain_loss_percent >= 0 ? '#4CAF50' : '#F44336',
-      })) || [];
+      data = investments?.mutual_funds
+        .filter(fund => fund.gain_loss_percent != null)
+        .map((fund) => ({
+          value: Math.abs(fund.gain_loss_percent),
+          label: fund.fund_name.substring(0, 10),
+          frontColor: fund.gain_loss_percent >= 0 ? '#4CAF50' : '#F44336',
+        })) || [];
     }
     return data.slice(0, 5); // Show top 5
   };

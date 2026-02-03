@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import SmsAndroid from 'react-native-get-sms-android';
 import { PermissionsAndroid, Platform } from 'react-native';
-import { api } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import api from '../services/api';
 
 interface SMSMessage {
   _id: string;
@@ -121,9 +122,7 @@ export const useSMSSync = () => {
       }));
 
       // Send to server for parsing
-      const response = await api.post('/parse/sms', {
-        messages: formattedMessages
-      });
+      const response = await api.parseSMS(formattedMessages);
 
       // Update last sync time
       const newSyncTime = Date.now();
@@ -165,11 +164,22 @@ export const useSMSSync = () => {
     }
   };
 
+  const resetSyncHistory = async () => {
+    try {
+      await AsyncStorage.removeItem(LAST_SYNC_KEY);
+      setLastSyncTime(null);
+      console.log('SMS sync history cleared');
+    } catch (error) {
+      console.error('Failed to reset sync history:', error);
+    }
+  };
+
   return {
     syncSMS,
     isSyncing,
     lastSyncTime,
     forwardSingleSMS,
-    requestSMSPermission
+    requestSMSPermission,
+    resetSyncHistory
   };
 };

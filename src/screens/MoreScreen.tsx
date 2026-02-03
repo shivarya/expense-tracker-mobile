@@ -1,18 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSMSSync } from '../hooks/useSMSSync';
-import { useGmailSync } from '../hooks/useGmailSync';
 import { useData } from '../contexts/DataContext';
 
 const MoreScreen = () => {
   const { theme, setTheme, isDark, colors } = useTheme();
-  const { syncSMS, isSyncing, lastSyncTime } = useSMSSync();
-  const { syncGmail, authorizeGmail, isSyncing: isGmailSyncing, lastSyncTime: gmailLastSync, isAuthorized } = useGmailSync();
+  const { syncSMS, isSyncing, lastSyncTime, resetSyncHistory } = useSMSSync();
   const { refreshAll } = useData();
   const [syncResult, setSyncResult] = useState<string | null>(null);
-  const [gmailSyncResult, setGmailSyncResult] = useState<string | null>(null);
   
   const menuItems = [
     { id: 'emis', icon: 'cash-outline', label: 'EMI Tracking', screen: 'EMIs' },
@@ -50,72 +47,6 @@ const MoreScreen = () => {
     return date.toLocaleString();
   };
 
-  const formatGmailLastSync = () => {
-    if (!gmailLastSync) return 'Never';
-    const date = new Date(gmailLastSync);
-    return date.toLocaleString();
-  };
-
-  const handleAuthorizeGmail = async () => {
-    try {
-      const result = await authorizeGmail();
-      
-      if (result.success && result.authUrl) {
-        Alert.alert(
-          'Gmail Authorization',
-          'You will be redirected to Google to authorize access to your Gmail. After authorization, return to the app and click "Sync Mutual Funds".',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Authorize',
-              onPress: () => Linking.openURL(result.authUrl!)
-            }
-          ]
-        );
-      } else {
-        Alert.alert('Error', result.error || 'Failed to get authorization URL');
-      }
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to authorize Gmail');
-    }
-  };
-
-  const handleSyncGmail = async () => {
-    try {
-      setGmailSyncResult(null);
-
-      if (!isAuthorized) {
-        Alert.alert(
-          'Authorization Required',
-          'Please authorize Gmail access first to sync mutual fund statements.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Authorize Now', onPress: handleAuthorizeGmail }
-          ]
-        );
-        return;
-      }
-
-      const result = await syncGmail();
-      
-      if (result.success) {
-        const message = `Gmail Sync Complete!\n\nEmails Processed: ${result.count || 0}\nTransactions Saved: ${result.saved || 0}`;
-        setGmailSyncResult(message);
-        Alert.alert('Success', message);
-        
-        // Refresh data to show new transactions
-        await refreshAll();
-      } else {
-        Alert.alert('Error', result.error || 'Gmail sync failed');
-        setGmailSyncResult(`Error: ${result.error}`);
-      }
-    } catch (error: any) {
-      const errorMsg = error.message || 'Failed to sync Gmail';
-      Alert.alert('Error', errorMsg);
-      setGmailSyncResult(`Error: ${errorMsg}`);
-    }
-  };
-
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* SMS Sync Section */}
@@ -137,6 +68,30 @@ const MoreScreen = () => {
           )}
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={[styles.resetButton, { backgroundColor: colors.border }]}
+          onPress={() => {
+            Alert.alert(
+              'Reset SMS Sync',
+              'This will allow you to re-sync all SMS messages from the last 30 days. Continue?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Reset',
+                  style: 'destructive',
+                  onPress: async () => {
+                    await resetSyncHistory();
+                    Alert.alert('Success', 'SMS sync history cleared. You can now sync all messages again.');
+                  }
+                }
+              ]
+            );
+          }}
+        >
+          <Ionicons name="refresh-outline" size={20} color={colors.text} />
+          <Text style={[styles.resetButtonText, { color: colors.text }]}>Reset Sync History</Text>
+        </TouchableOpacity>
+
         <View style={styles.syncInfo}>
           <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
             Last synced: {formatLastSync()}
@@ -151,56 +106,6 @@ const MoreScreen = () => {
         <View style={[styles.infoCard, { borderBottomColor: colors.border }]}>
           <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
             Automatically reads bank SMS from your phone and creates expense transactions using AI.
-          </Text>
-        </View>
-      </View>
-
-      {/* Gmail/Mutual Fund Sync Section */}
-      <View style={[styles.section, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Mutual Funds Sync</Text>
-        
-        {!isAuthorized && (
-          <TouchableOpacity
-            style={[styles.syncButton, { backgroundColor: colors.warning || '#FF9800' }]}
-            onPress={handleAuthorizeGmail}
-          >
-            <Ionicons name="mail-outline" size={24} color="#fff" />
-            <Text style={styles.syncButtonText}>Authorize Gmail</Text>
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          style={[styles.syncButton, { backgroundColor: isGmailSyncing ? colors.border : colors.primary, marginTop: !isAuthorized ? 10 : 0 }]}
-          onPress={handleSyncGmail}
-          disabled={isGmailSyncing}
-        >
-          {isGmailSyncing ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Ionicons name="mail-outline" size={24} color="#fff" />
-              <Text style={styles.syncButtonText}>Sync Mutual Funds (Gmail)</Text>
-            </>
-          )}
-        </TouchableOpacity>
-
-        <View style={styles.syncInfo}>
-          <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
-            Status: {isAuthorized ? '✓ Authorized' : '✗ Not Authorized'}
-          </Text>
-          <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
-            Last synced: {formatGmailLastSync()}
-          </Text>
-          {gmailSyncResult && (
-            <Text style={[styles.syncResult, { color: colors.text }]}>
-              {gmailSyncResult}
-            </Text>
-          )}
-        </View>
-
-        <View style={[styles.infoCard, { borderBottomColor: colors.border }]}>
-          <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-            Fetches CAMS/KFintech mutual fund statements from Gmail and automatically imports your investments.
           </Text>
         </View>
       </View>
@@ -390,6 +295,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 12,
+  },
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  resetButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
   },
   syncInfo: {
     marginBottom: 12,
