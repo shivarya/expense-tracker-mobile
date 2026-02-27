@@ -102,6 +102,16 @@ const DashboardScreen = () => {
                 </View>
               )}
             />
+            {/* Category legend */}
+            <View style={styles.legendContainer}>
+              {pieData.map((item, index) => (
+                <View key={index} style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+                  <Text style={[styles.legendLabel, { color: colors.textSecondary }]}>{item.label}</Text>
+                  <Text style={[styles.legendValue, { color: colors.text }]}>{formatCompactCurrency(item.value)}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         )}
       </View>
@@ -133,17 +143,38 @@ const DashboardScreen = () => {
       {dashboard && dashboard.upcoming_emis.length > 0 && (
         <View style={[styles.card, { backgroundColor: colors.card }]}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>Upcoming EMIs</Text>
-          {dashboard.upcoming_emis.map((emi) => (
-            <View key={emi.id} style={[styles.emiItem, { borderBottomColor: colors.border }]}>
-              <View style={styles.emiLeft}>
-                <Text style={[styles.emiName, { color: colors.text }]}>{emi.loan_name}</Text>
-                <Text style={[styles.emiDate, { color: colors.warning }]}>
-                  Due: {new Date(emi.next_payment_date).toLocaleDateString('en-IN')}
-                </Text>
+          {dashboard.upcoming_emis.map((emi) => {
+            const paid = Number(emi.paid_installments) || 0;
+            const total = Number(emi.total_installments) || 0;
+            return (
+              <View key={emi.id} style={[styles.emiItem, { borderBottomColor: colors.border }]}>
+                <View style={styles.emiLeft}>
+                  <View style={styles.emiHeader}>
+                    <Text style={[styles.emiName, { color: colors.text }]}>{emi.loan_name}</Text>
+                    {emi.loan_type && (
+                      <View style={[styles.loanTypeBadge, {
+                        backgroundColor: emi.loan_type === 'home' ? '#4CAF50' :
+                          emi.loan_type === 'consumer_durable' ? '#9C27B0' :
+                          emi.loan_type === 'personal' ? '#FF9800' :
+                          emi.loan_type === 'car' ? '#2196F3' : '#666',
+                      }]}>
+                        <Text style={styles.loanTypeBadgeText}>{emi.loan_type.replace('_', ' ').toUpperCase()}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.emiDate, { color: colors.warning }]}>
+                    Due: {new Date(emi.next_payment_date).toLocaleDateString('en-IN')}
+                  </Text>
+                  {total > 0 && (
+                    <Text style={[styles.emiProgress, { color: colors.textSecondary }]}>
+                      {paid}/{total} installments paid
+                    </Text>
+                  )}
+                </View>
+                <Text style={[styles.emiAmount, { color: colors.text }]}>{formatCurrency(Number(emi.emi_amount))}</Text>
               </View>
-              <Text style={[styles.emiAmount, { color: colors.text }]}>{formatCurrency(Number(emi.emi_amount))}</Text>
-            </View>
-          ))}
+            );
+          })}
         </View>
       )}
     </ScrollView>
@@ -299,6 +330,50 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#F44336',
+  },
+  emiHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  loanTypeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 3,
+  },
+  loanTypeBadgeText: {
+    fontSize: 8,
+    color: '#fff',
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  emiProgress: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  legendContainer: {
+    marginTop: 16,
+    width: '100%',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 8,
+  },
+  legendLabel: {
+    fontSize: 13,
+    flex: 1,
+  },
+  legendValue: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
 

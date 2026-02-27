@@ -2,6 +2,7 @@ export interface Stock {
   id: number;
   platform: 'zerodha' | 'groww' | 'other';
   symbol: string;
+  isin?: string;
   company_name?: string;
   quantity: number;
   average_price: number;
@@ -10,6 +11,7 @@ export interface Stock {
   current_price?: number;
   gain_loss_amount: number;
   gain_loss_percent: number;
+  dedupe_key?: string;
   last_updated: string;
 }
 
@@ -18,6 +20,8 @@ export interface MutualFund {
   fund_name: string;
   folio_number: string;
   amc: string;
+  scheme_code?: string;
+  isin?: string;
   units: number;
   nav: number;
   invested_amount: number;
@@ -49,13 +53,19 @@ export interface LongTermFund {
   fund_type: 'pf' | 'nps' | 'sukanya' | 'ppf' | 'vpf';
   account_name: string;
   account_number?: string;
+  pran_number?: string;
+  uan_number?: string;
   invested_amount: number;
   current_value: number;
   employer_contribution?: number;
   interest_earned?: number;
   maturity_date?: string;
   maturity_value?: number;
+  lock_in_period_years?: number;
+  start_date?: string;
+  last_contribution_date?: string;
   status: 'active' | 'matured' | 'closed';
+  last_updated?: string;
 }
 
 export interface Investments {

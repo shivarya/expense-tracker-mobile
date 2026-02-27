@@ -42,13 +42,17 @@ export interface Transaction {
 export interface EMI {
   id: number;
   loan_name: string;
-  loan_type: 'home' | 'car' | 'personal' | 'education' | 'credit_card' | 'other';
+  loan_type: 'home' | 'car' | 'personal' | 'education' | 'credit_card' | 'consumer_durable' | 'other';
   bank: string;
   principal_amount: number;
   interest_rate: number;
   tenure_months: number;
   emi_amount: number;
   remaining_months: number;
+  total_installments?: number;
+  paid_installments?: number;
   next_payment_date: string;
+  start_date?: string;
+  end_date?: string;
   status: 'active' | 'paid' | 'foreclosed';
 }
