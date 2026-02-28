@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import SmsAndroid from 'react-native-get-sms-android';
 import { PermissionsAndroid, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -15,6 +14,16 @@ interface SMSMessage {
 
 const BANK_KEYWORDS = ['hdfc', 'sbi', 'icici', 'idfc', 'rbl', 'axis', 'kotak', 'credited', 'debited'];
 const LAST_SYNC_KEY = 'sms_last_sync_timestamp';
+
+const getSmsAndroidModule = () => {
+  try {
+    const module = require('react-native-get-sms-android');
+    return module?.default || module;
+  } catch (error) {
+    console.warn('[useSMSSync] SMS module unavailable:', error);
+    return null;
+  }
+};
 
 export const useSMSSync = () => {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -79,6 +88,11 @@ export const useSMSSync = () => {
 
       // Get SMS from last sync or last 30 days
       const minDate = lastSyncTime || Date.now() - (30 * 24 * 60 * 60 * 1000);
+      const SmsAndroid = getSmsAndroidModule();
+
+      if (!SmsAndroid?.list) {
+        throw new Error('SMS sync is not available in this build. Please install the latest compatible build.');
+      }
       
       const messages = await new Promise<SMSMessage[]>((resolve, reject) => {
         const filter = {

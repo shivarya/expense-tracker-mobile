@@ -177,7 +177,7 @@ const MoreScreen = () => {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>About</Text>
         <View style={[styles.infoCard, { borderBottomColor: colors.border }]}>
           <Text style={[styles.infoLabel, { color: colors.text }]}>App Version</Text>
-          <Text style={[styles.infoValue, { color: colors.textSecondary }]}>1.0.0</Text>
+          <Text style={[styles.infoValue, { color: colors.textSecondary }]}>2.0.0</Text>
         </View>
         <View style={[styles.infoCard, { borderBottomColor: colors.border }]}>
           <Text style={[styles.infoLabel, { color: colors.text }]}>Build</Text>

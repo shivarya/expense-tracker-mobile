@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,374 +7,662 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { useData } from '../contexts/DataContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { PieChart } from 'react-native-gifted-charts';
 import { formatCurrency, formatCompactCurrency, formatPercent } from '../utils/format';
+import ApiService from '../services/api';
+import { Category } from '../types/transactions';
+import CategoryPickerModal from '../components/CategoryPickerModal';
+
+const CHART_COLORS = ['#FF4757', '#2B7BE5', '#FFA502', '#00C48C', '#9C27B0', '#FF6B6B'];
 
 const DashboardScreen = () => {
   const { dashboard, loading, error, refreshDashboard } = useData();
   const { colors } = useTheme();
+  const { user } = useAuth();
+
+  const [monthExpenses, setMonthExpenses] = useState<number>(0);
+  const [monthCount, setMonthCount] = useState<number>(0);
+  const [monthLoading, setMonthLoading] = useState(false);
+
+  // Category picker state
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [selectedTxn, setSelectedTxn] = useState<any>(null);
+  const [localTransactions, setLocalTransactions] = useState<any[]>([]);
+
+  const fetchCurrentMonthExpenses = async () => {
+    try {
+      setMonthLoading(true);
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const fmt = (d: Date) => d.toISOString().split('T')[0];
+      const result = await ApiService.getTransactions({ start_date: fmt(start), end_date: fmt(end), type: 'debit', limit: 200 });
+      const total = result.summary?.total_debit
+        ?? result.transactions?.reduce((s: number, t: any) => s + Number(t.amount || 0), 0)
+        ?? 0;
+      setMonthExpenses(Number(total));
+      setMonthCount(result.transactions?.length ?? 0);
+    } catch (e) {
+      // silent - non-critical
+    } finally {
+      setMonthLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) fetchCurrentMonthExpenses();
+  }, [user]);
+
+  // Fetch categories once
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const cats = await ApiService.getCategories();
+        setCategories(cats);
+      } catch (_) { /* silent */ }
+    };
+    if (user) loadCategories();
+  }, [user]);
+
+  // Sync local transactions from dashboard
+  useEffect(() => {
+    if (dashboard?.recent_transactions) {
+      setLocalTransactions(dashboard.recent_transactions);
+    }
+  }, [dashboard?.recent_transactions]);
+
+  const handleCategoryTap = useCallback((txn: any) => {
+    setSelectedTxn(txn);
+    setShowCategoryPicker(true);
+  }, []);
+
+  const handleCategorySelect = useCallback(async (categoryId: number) => {
+    if (!selectedTxn) return;
+    setShowCategoryPicker(false);
+    try {
+      const result = await ApiService.updateTransactionCategory(selectedTxn.id, categoryId);
+      // Update local state immediately
+      setLocalTransactions(prev =>
+        prev.map(t =>
+          t.id === selectedTxn.id
+            ? { ...t, category_id: categoryId, category_name: result.category_name, category_color: result.category_color, category_icon: result.category_icon }
+            : t
+        )
+      );
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Failed to update category');
+    }
+    setSelectedTxn(null);
+  }, [selectedTxn]);
+
+  const handleRefresh = async () => {
+    await refreshDashboard();
+    await fetchCurrentMonthExpenses();
+  };
 
   if (loading && !dashboard) {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading dashboard...</Text>
+        <ActivityIndicator size="large" color={colors.error} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
       </View>
     );
   }
 
-  if (error) {
+  if (error && !dashboard) {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorText, { color: colors.error }]}>Error: {error}</Text>
-        <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={refreshDashboard}>
-          <Text style={styles.retryButtonText}>Retry</Text>
+        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+        <TouchableOpacity style={[styles.retryBtn, { backgroundColor: colors.error }]} onPress={handleRefresh}>
+          <Text style={styles.retryBtnText}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  // Prepare pie chart data
-  const pieData = dashboard?.portfolio.summary.map((item, index) => ({
-    value: item.current_value,
+  const portfolio = dashboard?.portfolio;
+  const totalCurrent = Number(portfolio?.total_current_value || 0);
+  const totalInvested = Number(portfolio?.total_invested || 0);
+  const gainLossAmt = Number(portfolio?.overall_gain_loss_amount || 0);
+  const gainLossPct = Number(portfolio?.overall_gain_loss || 0);
+  const isGain = gainLossAmt >= 0;
+
+  const pieData = (portfolio?.summary || []).map((item: any, i: number) => ({
+    value: Number(item.current_value),
     label: item.category,
-    color: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'][index % 4],
-  })) || [];
+    color: CHART_COLORS[i % CHART_COLORS.length],
+  }));
+
+  const now = new Date();
+  const monthName = now.toLocaleString('en-IN', { month: 'long' });
+  const hour = now.getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const firstName = user?.name?.split(' ')[0] ?? '';
 
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      refreshControl={
-        <RefreshControl refreshing={loading} onRefresh={refreshDashboard} tintColor={colors.primary} />
-      }
+      contentContainerStyle={styles.contentContainer}
+      refreshControl={<RefreshControl refreshing={loading} onRefresh={handleRefresh} tintColor={colors.error} />}
+      showsVerticalScrollIndicator={false}
     >
-      {/* Portfolio Summary */}
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>Portfolio Overview</Text>
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Invested</Text>
-            <Text style={[styles.summaryValue, { color: colors.text }]}>
-              {formatCurrency(Number(dashboard?.portfolio.total_invested || 0))}
-            </Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Current Value</Text>
-            <Text style={[styles.summaryValue, { color: colors.text }]}>
-              {formatCurrency(Number(dashboard?.portfolio.total_current_value || 0))}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.gainLossRow}>
-          <Text style={[styles.gainLossLabel, { color: colors.textSecondary }]}>Gain/Loss:</Text>
-          <Text
-            style={[
-              styles.gainLossValue,
-              {
-                color:
-                  (Number(dashboard?.portfolio.overall_gain_loss || 0)) >= 0
-                    ? colors.success
-                    : colors.error,
-              },
-            ]}
-          >
-            {(Number(dashboard?.portfolio.overall_gain_loss || 0)) >= 0 ? '+' : ''}
-            {formatPercent(Number(dashboard?.portfolio.overall_gain_loss || 0))} ({formatCurrency(Number(dashboard?.portfolio.overall_gain_loss_amount || 0))})
-          </Text>
-        </View>
+      {/* Greeting */}
+      <View style={styles.header}>
+        <Text style={[styles.greeting, { color: colors.text }]}>
+          {greeting}{firstName ? `, ${firstName}` : ''}
+        </Text>
+        <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>
+          {now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+        </Text>
+      </View>
 
-        {pieData.length > 0 && (
-          <View style={styles.chartContainer}>
+      {/* Net Worth Hero Card */}
+      <View style={[styles.heroCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>NET WORTH</Text>
+        <Text style={[styles.heroValue, { color: colors.text }]}>
+          {formatCompactCurrency(totalCurrent)}
+        </Text>
+        <View style={styles.heroMeta}>
+          <View style={styles.heroMetaItem}>
+            <Text style={[styles.heroMetaLabel, { color: colors.textSecondary }]}>INVESTED</Text>
+            <Text style={[styles.heroMetaValue, { color: colors.text }]}>{formatCompactCurrency(totalInvested)}</Text>
+          </View>
+          <View style={[styles.heroMetaDivider, { backgroundColor: colors.border }]} />
+          <View style={styles.heroMetaItem}>
+            <Text style={[styles.heroMetaLabel, { color: colors.textSecondary }]}>RETURNS</Text>
+            <Text style={[styles.heroMetaValue, { color: isGain ? colors.success : colors.error }]}>
+              {isGain ? '+' : ''}{formatPercent(gainLossPct)}
+            </Text>
+          </View>
+          <View style={[styles.heroMetaDivider, { backgroundColor: colors.border }]} />
+          <View style={styles.heroMetaItem}>
+            <Text style={[styles.heroMetaLabel, { color: colors.textSecondary }]}>P&L</Text>
+            <Text style={[styles.heroMetaValue, { color: isGain ? colors.success : colors.error }]}>
+              {isGain ? '+' : ''}{formatCompactCurrency(gainLossAmt)}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Current Month Expenses */}
+      <View style={[styles.monthCard, { backgroundColor: colors.error }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.monthLabel}>{monthName.toUpperCase()} SPENT</Text>
+          <Text style={styles.monthValue}>
+            {monthLoading ? '...' : formatCompactCurrency(monthExpenses)}
+          </Text>
+          {!monthLoading && monthCount > 0 && (
+            <Text style={styles.monthSub}>{monthCount} transactions this month</Text>
+          )}
+          {!monthLoading && monthCount === 0 && (
+            <Text style={styles.monthSub}>No expenses recorded yet</Text>
+          )}
+        </View>
+        <View style={styles.monthBadge}>
+          <Text style={styles.monthBadgeText}>THIS{'\n'}MONTH</Text>
+        </View>
+      </View>
+
+      {/* Portfolio Split */}
+      {pieData.length > 0 && (
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>PORTFOLIO SPLIT</Text>
+          <View style={styles.pieRow}>
             <PieChart
               data={pieData}
               donut
-              radius={100}
-              innerRadius={60}
+              radius={80}
+              innerRadius={50}
               centerLabelComponent={() => (
-                <View style={styles.centerLabel}>
-                  <Text style={[styles.centerLabelValue, { color: colors.text }]}>
-                    {formatCompactCurrency(dashboard?.portfolio.total_current_value || 0)}
+                <View style={styles.pieCenterLabel}>
+                  <Text style={[styles.pieCenterValue, { color: colors.text }]}>
+                    {formatCompactCurrency(totalCurrent)}
                   </Text>
-                  <Text style={[styles.centerLabelText, { color: colors.textSecondary }]}>Total</Text>
+                  <Text style={[styles.pieCenterSub, { color: colors.textSecondary }]}>total</Text>
                 </View>
               )}
             />
-            {/* Category legend */}
-            <View style={styles.legendContainer}>
-              {pieData.map((item, index) => (
-                <View key={index} style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: item.color }]} />
-                  <Text style={[styles.legendLabel, { color: colors.textSecondary }]}>{item.label}</Text>
-                  <Text style={[styles.legendValue, { color: colors.text }]}>{formatCompactCurrency(item.value)}</Text>
-                </View>
-              ))}
+            <View style={styles.pieLegend}>
+              {pieData.map((item: any, i: number) => {
+                const pct = totalCurrent > 0 ? ((item.value / totalCurrent) * 100).toFixed(0) : '0';
+                return (
+                  <View key={i} style={styles.legendRow}>
+                    <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+                    <View style={styles.legendContent}>
+                      <Text style={[styles.legendLabel, { color: colors.textSecondary }]}>{item.label}</Text>
+                      <Text style={[styles.legendValue, { color: colors.text }]}>{formatCompactCurrency(item.value)}</Text>
+                    </View>
+                    <Text style={[styles.legendPct, { color: colors.textSecondary }]}>{pct}%</Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
+        </View>
+      )}
+
+      {/* Recent Transactions */}
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>RECENT TRANSACTIONS</Text>
+        {(localTransactions || []).slice(0, 8).map((txn: any, i: number, arr: any[]) => (
+          <View key={txn.id}>
+            <View style={styles.txnRow}>
+              <View style={[styles.txnIcon, {
+                backgroundColor: txn.transaction_type === 'credit'
+                  ? colors.success + '22'
+                  : colors.error + '22',
+              }]}>
+                <Text style={[styles.txnArrow, {
+                  color: txn.transaction_type === 'credit' ? colors.success : colors.error,
+                }]}>
+                  {txn.transaction_type === 'credit' ? '↙' : '↗'}
+                </Text>
+              </View>
+              <View style={styles.txnInfo}>
+                <Text style={[styles.txnMerchant, { color: colors.text }]} numberOfLines={1}>
+                  {txn.merchant || txn.description || 'Transaction'}
+                </Text>
+                <View style={styles.txnSubRow}>
+                  <Text style={[styles.txnDate, { color: colors.textSecondary }]}>
+                    {new Date(txn.transaction_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => handleCategoryTap(txn)}
+                    activeOpacity={0.6}
+                    style={[
+                      styles.categoryBadge,
+                      { backgroundColor: (txn.category_color || colors.textSecondary) + '18' },
+                    ]}
+                  >
+                    <View style={[styles.categoryDot, { backgroundColor: txn.category_color || colors.textSecondary }]} />
+                    <Text
+                      style={[
+                        styles.categoryBadgeText,
+                        { color: txn.category_color || colors.textSecondary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {txn.category_name || 'Uncategorized'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <Text style={[styles.txnAmount, {
+                color: txn.transaction_type === 'credit' ? colors.success : colors.error,
+              }]}>
+                {txn.transaction_type === 'credit' ? '+' : '-'}{formatCurrency(Number(txn.amount))}
+              </Text>
+            </View>
+            {i < arr.length - 1 && <View style={[styles.divider, { backgroundColor: colors.divider }]} />}
+          </View>
+        ))}
+        {(!localTransactions || localTransactions.length === 0) && (
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No recent transactions</Text>
         )}
       </View>
 
-      {/* Recent Transactions */}
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>Recent Transactions</Text>
-        {dashboard?.recent_transactions.slice(0, 5).map((txn) => (
-          <View key={txn.id} style={[styles.transactionItem, { borderBottomColor: colors.border }]}>
-            <View style={styles.transactionLeft}>
-              <Text style={[styles.transactionMerchant, { color: colors.text }]}>{txn.merchant || 'Transaction'}</Text>
-              <Text style={[styles.transactionDate, { color: colors.textSecondary }]}>
-                {new Date(txn.transaction_date).toLocaleDateString('en-IN')}
-              </Text>
-            </View>
-            <Text
-              style={[
-                styles.transactionAmount,
-                { color: txn.transaction_type === 'credit' ? colors.success : colors.error },
-              ]}
-            >
-              {txn.transaction_type === 'credit' ? '+' : '-'}{formatCurrency(Number(txn.amount))}
-            </Text>
-          </View>
-        ))}
-      </View>
+      {/* Category Picker Modal */}
+      <CategoryPickerModal
+        visible={showCategoryPicker}
+        onClose={() => { setShowCategoryPicker(false); setSelectedTxn(null); }}
+        categories={categories}
+        onSelect={handleCategorySelect}
+        currentCategoryId={selectedTxn?.category_id}
+      />
 
       {/* Upcoming EMIs */}
       {dashboard && dashboard.upcoming_emis.length > 0 && (
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Upcoming EMIs</Text>
-          {dashboard.upcoming_emis.map((emi) => {
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>UPCOMING EMIS</Text>
+          {dashboard.upcoming_emis.map((emi: any, i: number, arr: any[]) => {
             const paid = Number(emi.paid_installments) || 0;
             const total = Number(emi.total_installments) || 0;
+            const progress = total > 0 ? paid / total : 0;
+            const loanColors: Record<string, string> = {
+              home: colors.success,
+              personal: colors.warning,
+              car: '#2B7BE5',
+              consumer_durable: '#9C27B0',
+            };
+            const badgeColor = loanColors[emi.loan_type] || colors.textSecondary;
             return (
-              <View key={emi.id} style={[styles.emiItem, { borderBottomColor: colors.border }]}>
-                <View style={styles.emiLeft}>
-                  <View style={styles.emiHeader}>
-                    <Text style={[styles.emiName, { color: colors.text }]}>{emi.loan_name}</Text>
-                    {emi.loan_type && (
-                      <View style={[styles.loanTypeBadge, {
-                        backgroundColor: emi.loan_type === 'home' ? '#4CAF50' :
-                          emi.loan_type === 'consumer_durable' ? '#9C27B0' :
-                          emi.loan_type === 'personal' ? '#FF9800' :
-                          emi.loan_type === 'car' ? '#2196F3' : '#666',
-                      }]}>
-                        <Text style={styles.loanTypeBadgeText}>{emi.loan_type.replace('_', ' ').toUpperCase()}</Text>
+              <View key={emi.id}>
+                <View style={styles.emiRow}>
+                  <View style={styles.emiInfo}>
+                    <View style={styles.emiNameRow}>
+                      <Text style={[styles.emiName, { color: colors.text }]}>{emi.loan_name}</Text>
+                      {emi.loan_type && (
+                        <View style={[styles.loanBadge, { borderColor: badgeColor }]}>
+                          <Text style={[styles.loanBadgeText, { color: badgeColor }]}>
+                            {emi.loan_type.replace('_', ' ').toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[styles.emiDue, { color: colors.warning }]}>
+                      {'Due ' + new Date(emi.next_payment_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </Text>
+                    {total > 0 && (
+                      <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+                        <View style={[styles.progressFill, { width: (progress * 100) + '%' as any, backgroundColor: colors.success }]} />
                       </View>
                     )}
+                    {total > 0 && (
+                      <Text style={[styles.emiProgress, { color: colors.textSecondary }]}>{paid}/{total} paid</Text>
+                    )}
                   </View>
-                  <Text style={[styles.emiDate, { color: colors.warning }]}>
-                    Due: {new Date(emi.next_payment_date).toLocaleDateString('en-IN')}
-                  </Text>
-                  {total > 0 && (
-                    <Text style={[styles.emiProgress, { color: colors.textSecondary }]}>
-                      {paid}/{total} installments paid
-                    </Text>
-                  )}
+                  <Text style={[styles.emiAmount, { color: colors.text }]}>{formatCurrency(Number(emi.emi_amount))}</Text>
                 </View>
-                <Text style={[styles.emiAmount, { color: colors.text }]}>{formatCurrency(Number(emi.emi_amount))}</Text>
+                {i < arr.length - 1 && <View style={[styles.divider, { backgroundColor: colors.divider }]} />}
               </View>
             );
           })}
         </View>
       )}
+
+      <View style={styles.bottomPad} />
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
+  container: { flex: 1 },
+  contentContainer: { paddingBottom: 24 },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666',
+    fontSize: 14,
+    marginTop: 12,
   },
   errorText: {
-    fontSize: 16,
-    color: '#F44336',
+    fontSize: 15,
     textAlign: 'center',
-    marginBottom: 16,
     paddingHorizontal: 32,
+    marginBottom: 16,
   },
-  retryButton: {
-    backgroundColor: '#2196F3',
-    paddingHorizontal: 24,
+  retryBtn: {
+    paddingHorizontal: 28,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 24,
   },
-  retryButtonText: {
+  retryBtnText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 14,
+  },
+  greeting: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  dateLabel: {
+    fontSize: 13,
+    marginTop: 3,
+  },
+  heroCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    marginBottom: 6,
+  },
+  heroValue: {
+    fontSize: 42,
+    fontWeight: '800',
+    letterSpacing: -1.5,
+    marginBottom: 20,
+  },
+  heroMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  heroMetaItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  heroMetaLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  heroMetaValue: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  heroMetaDivider: {
+    width: 1,
+    height: 36,
+  },
+  monthCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 20,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  monthLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    color: 'rgba(255,255,255,0.75)',
+    marginBottom: 4,
+  },
+  monthValue: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: -0.8,
+  },
+  monthSub: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 5,
+  },
+  monthBadge: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    marginLeft: 12,
+    alignItems: 'center',
+  },
+  monthBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 0.8,
+    textAlign: 'center',
   },
   card: {
-    backgroundColor: '#fff',
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 1,
   },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#333',
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  summaryItem: {
-    flex: 1,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  summaryValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  gainLossRow: {
+  pieRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginTop: 14,
+    gap: 20,
   },
-  gainLossLabel: {
+  pieCenterLabel: { alignItems: 'center' },
+  pieCenterValue: {
     fontSize: 14,
-    color: '#666',
-    marginRight: 8,
+    fontWeight: '800',
   },
-  gainLossValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  pieCenterSub: {
+    fontSize: 10,
+    fontWeight: '500',
+    marginTop: 1,
   },
-  chartContainer: {
-    alignItems: 'center',
-    marginTop: 16,
+  pieLegend: {
+    flex: 1,
+    gap: 10,
   },
-  centerLabel: {
-    alignItems: 'center',
-  },
-  centerLabelValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  centerLabelText: {
-    fontSize: 12,
-    color: '#666',
-  },
-  transactionItem: {
+  legendRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendContent: { flex: 1 },
+  legendLabel: {
+    fontSize: 11,
+    letterSpacing: 0.1,
+  },
+  legendValue: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  legendPct: {
+    fontSize: 12,
+    fontWeight: '600',
+    minWidth: 30,
+    textAlign: 'right',
+  },
+  txnRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    gap: 12,
   },
-  transactionLeft: {
-    flex: 1,
-  },
-  transactionMerchant: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  transactionDate: {
-    fontSize: 12,
-    color: '#999',
-  },
-  transactionAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  emiItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  txnIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    justifyContent: 'center',
   },
-  emiLeft: {
-    flex: 1,
+  txnArrow: {
+    fontSize: 18,
+    fontWeight: '700',
   },
-  emiName: {
+  txnInfo: { flex: 1 },
+  txnMerchant: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
+    letterSpacing: -0.1,
   },
-  emiDate: {
+  txnDate: {
     fontSize: 12,
-    color: '#FF9800',
   },
-  emiAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#F44336',
+  txnSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 3,
   },
-  emiHeader: {
+  categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 4,
+    maxWidth: 120,
+  },
+  categoryDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  categoryBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.1,
+  },
+  txnAmount: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  divider: {
+    height: 1,
+    marginLeft: 50,
+  },
+  emptyText: {
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  emiRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+    gap: 12,
+  },
+  emiInfo: { flex: 1 },
+  emiNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     marginBottom: 4,
+    flexWrap: 'wrap',
   },
-  loanTypeBadge: {
+  emiName: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  loanBadge: {
+    borderWidth: 1,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 3,
+    borderRadius: 6,
   },
-  loanTypeBadgeText: {
-    fontSize: 8,
-    color: '#fff',
-    fontWeight: 'bold',
+  loanBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
-  emiProgress: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  legendContainer: {
-    marginTop: 16,
-    width: '100%',
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  emiDue: {
+    fontSize: 12,
     marginBottom: 6,
   },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 8,
+  progressBar: {
+    height: 3,
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 4,
   },
-  legendLabel: {
-    fontSize: 13,
-    flex: 1,
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
   },
-  legendValue: {
-    fontSize: 13,
-    fontWeight: '600',
+  emiProgress: { fontSize: 11 },
+  emiAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
+  bottomPad: { height: 16 },
 });
 
 export default DashboardScreen;

@@ -29,37 +29,37 @@ interface ThemeContextType {
 }
 
 const lightColors: ThemeColors = {
-  background: '#f5f5f5',
-  surface: '#ffffff',
-  card: '#ffffff',
-  text: '#333333',
-  textSecondary: '#666666',
-  primary: '#2196F3',
-  success: '#4CAF50',
-  error: '#F44336',
-  warning: '#FF9800',
-  info: '#2196F3',
-  border: '#e0e0e0',
-  divider: '#e0e0e0',
-  disabled: '#bdbdbd',
-  placeholder: '#9e9e9e',
+  background: '#F5F4EF',  // warm off-white (CRED-inspired)
+  surface: '#FFFFFF',
+  card: '#FFFFFF',
+  text: '#111111',
+  textSecondary: '#888888',
+  primary: '#111111',     // near-black primary (CRED-style)
+  success: '#00C48C',
+  error: '#FF4757',
+  warning: '#FFA502',
+  info: '#2B7BE5',
+  border: '#EBEBEB',
+  divider: '#F0F0F0',
+  disabled: '#CCCCCC',
+  placeholder: '#AAAAAA',
 };
 
 const darkColors: ThemeColors = {
-  background: '#121212',
-  surface: '#1e1e1e',
-  card: '#2a2a2a',
-  text: '#ffffff',
-  textSecondary: '#b0b0b0',
-  primary: '#64B5F6',
-  success: '#81C784',
-  error: '#E57373',
-  warning: '#FFB74D',
+  background: '#0A0A0A',  // near-black (CRED dark)
+  surface: '#181818',
+  card: '#1C1C1C',
+  text: '#FFFFFF',
+  textSecondary: '#888888',
+  primary: '#FFFFFF',     // white primary in dark (CRED-style)
+  success: '#00C48C',
+  error: '#FF4757',
+  warning: '#FFA502',
   info: '#64B5F6',
-  border: '#3a3a3a',
-  divider: '#3a3a3a',
-  disabled: '#616161',
-  placeholder: '#757575',
+  border: '#2A2A2A',
+  divider: '#242424',
+  disabled: '#444444',
+  placeholder: '#666666',
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);

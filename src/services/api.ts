@@ -171,6 +171,22 @@ class ApiService {
     return response.data;
   }
 
+  async updateTransactionCategory(transactionId: number, categoryId: number): Promise<{
+    id: number;
+    category_id: number;
+    category_name: string;
+    category_color: string;
+    category_icon: string;
+  }> {
+    const response = await this.api.patch(`/transactions/${transactionId}/category`, {
+      category_id: categoryId,
+    });
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to update category');
+    }
+    return response.data.data;
+  }
+
   // Bank Accounts
   async getAccounts(): Promise<BankAccount[]> {
     const response = await this.api.get<ApiResponse<BankAccount[]>>('/accounts');

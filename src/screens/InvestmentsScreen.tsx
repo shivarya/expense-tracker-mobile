@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { BarChart, PieChart } from 'react-native-gifted-charts';
 import { useData } from '../contexts/DataContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { formatCurrency, formatCompactCurrency } from '../utils/format';
 
 const { width } = Dimensions.get('window');
@@ -19,6 +20,7 @@ const COLORS = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
 
 const InvestmentsScreen = () => {
   const { investments, loading, error, refreshInvestments } = useData();
+  const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState<'stocks' | 'mf' | 'fd' | 'longterm'>('stocks');
 
   // Compute tab summaries
@@ -55,17 +57,17 @@ const InvestmentsScreen = () => {
 
   if (loading && !investments) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.error} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={refreshInvestments}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+        <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.error }]} onPress={refreshInvestments}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -80,27 +82,27 @@ const InvestmentsScreen = () => {
     const gainPct = summary.invested > 0 ? (gainLoss / summary.invested) * 100 : 0;
 
     return (
-      <View style={styles.summaryCard}>
+      <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.summaryRow}>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Invested</Text>
-            <Text style={styles.summaryValue}>{formatCurrency(summary.invested)}</Text>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Invested</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(summary.invested)}</Text>
           </View>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Current Value</Text>
-            <Text style={styles.summaryValue}>{formatCurrency(summary.current)}</Text>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Current Value</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(summary.current)}</Text>
           </View>
         </View>
         <View style={styles.summaryRow}>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Gain/Loss</Text>
-            <Text style={[styles.summaryGain, { color: gainLoss >= 0 ? '#4CAF50' : '#F44336' }]}>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Gain/Loss</Text>
+            <Text style={[styles.summaryGain, { color: gainLoss >= 0 ? colors.success : colors.error }]}>
               {gainLoss >= 0 ? '+' : ''}{formatCurrency(gainLoss)} ({gainPct.toFixed(1)}%)
             </Text>
           </View>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Holdings</Text>
-            <Text style={styles.summaryValue}>{summary.count}</Text>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Holdings</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>{summary.count}</Text>
           </View>
         </View>
       </View>
@@ -114,12 +116,12 @@ const InvestmentsScreen = () => {
         const qty = Number(stock.quantity) || 0;
         const cmp = Number(stock.current_price) || Number(stock.average_price) || 0;
         return (
-          <View key={stock.id} style={styles.investmentCard}>
+          <View key={stock.id} style={[styles.investmentCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.investmentHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.investmentName}>{stock.symbol}</Text>
+                <Text style={[styles.investmentName, { color: colors.text }]}>{stock.symbol}</Text>
                 {stock.company_name && (
-                  <Text style={styles.investmentSubtext} numberOfLines={1}>
+                  <Text style={[styles.investmentSubtext, { color: colors.textSecondary }]} numberOfLines={1}>
                     {stock.company_name}
                   </Text>
                 )}
@@ -130,21 +132,21 @@ const InvestmentsScreen = () => {
             </View>
             <View style={styles.investmentRow}>
               <View style={styles.investmentCol}>
-                <Text style={styles.investmentLabel}>Qty × CMP</Text>
-                <Text style={styles.investmentValue}>
+                <Text style={[styles.investmentLabel, { color: colors.textSecondary }]}>Qty × CMP</Text>
+                <Text style={[styles.investmentValue, { color: colors.text }]}>
                   {qty} × ₹{cmp.toLocaleString('en-IN')}
                 </Text>
               </View>
               <View style={styles.investmentCol}>
-                <Text style={styles.investmentLabel}>Current Value</Text>
-                <Text style={styles.investmentValueBold}>
+                <Text style={[styles.investmentLabel, { color: colors.textSecondary }]}>Current Value</Text>
+                <Text style={[styles.investmentValueBold, { color: colors.text }]}>
                   {formatCurrency(Number(stock.current_value))}
                 </Text>
               </View>
               <View style={styles.investmentCol}>
-                <Text style={styles.investmentLabel}>P&L</Text>
+                <Text style={[styles.investmentLabel, { color: colors.textSecondary }]}>P&L</Text>
                 <Text
-                  style={[styles.investmentGain, { color: gainPct >= 0 ? '#4CAF50' : '#F44336' }]}
+                  style={[styles.investmentGain, { color: gainPct >= 0 ? colors.success : colors.error }]}
                 >
                   {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
                 </Text>
@@ -154,7 +156,7 @@ const InvestmentsScreen = () => {
         );
       })}
       {investments?.stocks.length === 0 && (
-        <Text style={styles.emptyText}>No stocks found</Text>
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No stocks found</Text>
       )}
     </View>
   );
@@ -166,24 +168,24 @@ const InvestmentsScreen = () => {
         const nav = Number(fund.nav) || 0;
         const currentVal = Number(fund.current_value) || 0;
         return (
-          <View key={fund.id} style={styles.investmentCard}>
+          <View key={fund.id} style={[styles.investmentCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.investmentHeader}>
-              <Text style={[styles.investmentName, { fontSize: 14 }]} numberOfLines={2}>
+              <Text style={[styles.investmentName, { fontSize: 14, color: colors.text }]} numberOfLines={2}>
                 {fund.fund_name}
               </Text>
             </View>
             <View style={styles.mfMetaRow}>
-              <Text style={styles.investmentSubtext}>{fund.amc}</Text>
+              <Text style={[styles.investmentSubtext, { color: colors.textSecondary }]}>{fund.amc}</Text>
               <View style={styles.mfBadges}>
-                <View style={[styles.typeBadge, { backgroundColor: fund.plan_type === 'direct' ? '#4CAF50' : '#FF9800' }]}>
+                <View style={[styles.typeBadge, { backgroundColor: fund.plan_type === 'direct' ? colors.success : colors.warning }]}>
                   <Text style={styles.typeBadgeText}>{fund.plan_type?.toUpperCase()}</Text>
                 </View>
-                <View style={[styles.typeBadge, { backgroundColor: '#2196F3', marginLeft: 4 }]}>
+                <View style={[styles.typeBadge, { backgroundColor: '#2B7BE5', marginLeft: 4 }]}>
                   <Text style={styles.typeBadgeText}>{(fund.option_type || 'growth').toUpperCase()}</Text>
                 </View>
               </View>
             </View>
-            <Text style={styles.folioText}>Folio: {fund.folio_number}</Text>
+            <Text style={[styles.folioText, { color: colors.placeholder }]}>Folio: {fund.folio_number}</Text>
             <View style={styles.investmentRow}>
               <View style={styles.investmentCol}>
                 <Text style={styles.investmentLabel}>Units</Text>
@@ -204,7 +206,7 @@ const InvestmentsScreen = () => {
         );
       })}
       {investments?.mutual_funds.length === 0 && (
-        <Text style={styles.emptyText}>No mutual funds found</Text>
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No mutual funds found</Text>
       )}
     </View>
   );
@@ -212,10 +214,10 @@ const InvestmentsScreen = () => {
   const renderFixedDeposits = () => (
     <View>
       {investments?.fixed_deposits.map((fd) => (
-        <View key={fd.id} style={styles.investmentCard}>
+        <View key={fd.id} style={[styles.investmentCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.investmentHeader}>
-            <Text style={styles.investmentName}>{fd.bank} FD</Text>
-            <View style={[styles.statusBadge, { backgroundColor: fd.status === 'active' ? '#4CAF50' : '#999' }]}>
+            <Text style={[styles.investmentName, { color: colors.text }]}>{fd.bank} FD</Text>
+            <View style={[styles.statusBadge, { backgroundColor: fd.status === 'active' ? colors.success : colors.textSecondary }]}>
               <Text style={styles.statusBadgeText}>{fd.status}</Text>
             </View>
           </View>
@@ -237,13 +239,13 @@ const InvestmentsScreen = () => {
               <Text style={styles.investmentValue}>{fd.interest_rate}%</Text>
             </View>
           </View>
-          <Text style={styles.maturityDate}>
+          <Text style={[styles.maturityDate, { color: colors.warning }]}>
             Matures: {new Date(fd.maturity_date).toLocaleDateString('en-IN')}
           </Text>
         </View>
       ))}
       {investments?.fixed_deposits.length === 0 && (
-        <Text style={styles.emptyText}>No fixed deposits found</Text>
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No fixed deposits found</Text>
       )}
     </View>
   );
@@ -274,7 +276,7 @@ const InvestmentsScreen = () => {
       <View>
         {Object.entries(grouped).map(([type, typeFunds]) => (
           <View key={type}>
-            <Text style={styles.sectionTitle}>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
               {typeIcons[type] || '📈'} {typeLabels[type] || type.toUpperCase()}
             </Text>
             {typeFunds.map((fund) => {
@@ -286,12 +288,12 @@ const InvestmentsScreen = () => {
               const interestEarned = Number(fund.interest_earned) || 0;
 
               return (
-                <View key={fund.id} style={styles.investmentCard}>
+                <View key={fund.id} style={[styles.investmentCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <View style={styles.investmentHeader}>
-                    <Text style={[styles.investmentName, { fontSize: 14 }]} numberOfLines={2}>
+                    <Text style={[styles.investmentName, { fontSize: 14, color: colors.text }]} numberOfLines={2}>
                       {fund.account_name}
                     </Text>
-                    <View style={[styles.statusBadge, { backgroundColor: fund.status === 'active' ? '#4CAF50' : fund.status === 'matured' ? '#FF9800' : '#999' }]}>
+                    <View style={[styles.statusBadge, { backgroundColor: fund.status === 'active' ? colors.success : fund.status === 'matured' ? colors.warning : colors.textSecondary }]}>
                       <Text style={styles.statusBadgeText}>{fund.status}</Text>
                     </View>
                   </View>
@@ -299,13 +301,13 @@ const InvestmentsScreen = () => {
                   {/* Account identifiers */}
                   <View style={styles.ltMetaRow}>
                     {fund.uan_number && (
-                      <Text style={styles.ltMetaText}>UAN: {fund.uan_number}</Text>
+                      <Text style={[styles.ltMetaText, { color: colors.textSecondary }]}>UAN: {fund.uan_number}</Text>
                     )}
                     {fund.pran_number && (
-                      <Text style={styles.ltMetaText}>PRAN: {fund.pran_number}</Text>
+                      <Text style={[styles.ltMetaText, { color: colors.textSecondary }]}>PRAN: {fund.pran_number}</Text>
                     )}
                     {fund.account_number && !fund.uan_number && !fund.pran_number && (
-                      <Text style={styles.ltMetaText}>A/C: {fund.account_number}</Text>
+                      <Text style={[styles.ltMetaText, { color: colors.textSecondary }]}>A/C: {fund.account_number}</Text>
                     )}
                   </View>
 
@@ -321,7 +323,7 @@ const InvestmentsScreen = () => {
                     </View>
                     <View style={styles.investmentCol}>
                       <Text style={styles.investmentLabel}>Gain/Loss</Text>
-                      <Text style={[styles.investmentGain, { color: gainLoss >= 0 ? '#4CAF50' : '#F44336' }]}>
+                      <Text style={[styles.investmentGain, { color: gainLoss >= 0 ? colors.success : colors.error }]}>
                         {gainLoss >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
                       </Text>
                     </View>
@@ -329,7 +331,7 @@ const InvestmentsScreen = () => {
 
                   {/* Breakdown row for PF/NPS */}
                   {(employerContrib > 0 || interestEarned > 0) && (
-                    <View style={styles.breakdownRow}>
+                    <View style={[styles.breakdownRow, { borderTopColor: colors.divider }]}>
                       {employerContrib > 0 && (
                         <View style={styles.breakdownItem}>
                           <Text style={styles.breakdownLabel}>Employer</Text>
@@ -339,7 +341,7 @@ const InvestmentsScreen = () => {
                       {interestEarned > 0 && (
                         <View style={styles.breakdownItem}>
                           <Text style={styles.breakdownLabel}>Interest</Text>
-                          <Text style={[styles.breakdownValue, { color: '#4CAF50' }]}>
+                          <Text style={[styles.breakdownValue, { color: colors.success }]}>
                             {formatCompactCurrency(interestEarned)}
                           </Text>
                         </View>
@@ -349,12 +351,12 @@ const InvestmentsScreen = () => {
 
                   {/* Last contribution */}
                   {fund.last_contribution_date && (
-                    <Text style={styles.maturityDate}>
+                    <Text style={[styles.maturityDate, { color: colors.warning }]}>
                       Last contribution: {new Date(fund.last_contribution_date).toLocaleDateString('en-IN')}
                     </Text>
                   )}
                   {fund.maturity_date && (
-                    <Text style={styles.maturityDate}>
+                    <Text style={[styles.maturityDate, { color: colors.warning }]}>
                       Matures: {new Date(fund.maturity_date).toLocaleDateString('en-IN')}
                     </Text>
                   )}
@@ -364,7 +366,7 @@ const InvestmentsScreen = () => {
           </View>
         ))}
         {funds.length === 0 && (
-          <Text style={styles.emptyText}>No long-term funds found</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No long-term funds found</Text>
         )}
       </View>
     );
@@ -413,7 +415,7 @@ const InvestmentsScreen = () => {
         return {
           value: Math.abs(pct),
           label: stock.symbol.substring(0, 6),
-          frontColor: pct >= 0 ? '#4CAF50' : '#F44336',
+          frontColor: pct >= 0 ? colors.success : colors.error,
         };
       });
   };
@@ -438,8 +440,8 @@ const InvestmentsScreen = () => {
       const data = getGainLossData();
       if (data.length === 0) return null;
       return (
-        <View style={styles.chartCard}>
-          <Text style={styles.chartTitle}>Top Movers - P&L %</Text>
+        <View style={[styles.chartCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.chartTitle, { color: colors.textSecondary }]}>TOP MOVERS — P&L %</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <BarChart
               data={data}
@@ -450,8 +452,10 @@ const InvestmentsScreen = () => {
               roundedTop
               xAxisThickness={1}
               yAxisThickness={1}
-              yAxisTextStyle={{ color: '#666', fontSize: 10 }}
-              xAxisLabelTextStyle={{ color: '#666', fontSize: 10 }}
+              yAxisTextStyle={{ color: colors.textSecondary, fontSize: 10 }}
+              xAxisLabelTextStyle={{ color: colors.textSecondary, fontSize: 10, fontWeight: '600' }}
+              xAxisColor={colors.border}
+              yAxisThickness={0}
               noOfSections={4}
               maxValue={Math.max(...data.map(d => d.value)) * 1.2 || 10}
             />
@@ -466,8 +470,8 @@ const InvestmentsScreen = () => {
       if (data.length === 0) return null;
       const totalMF = data.reduce((s, d) => s + d.value, 0);
       return (
-        <View style={styles.chartCard}>
-          <Text style={styles.chartTitle}>AMC Allocation</Text>
+        <View style={[styles.chartCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.chartTitle, { color: colors.textSecondary }]}>AMC ALLOCATION</Text>
           <View style={styles.pieContainer}>
             <PieChart
               data={data}
@@ -476,10 +480,10 @@ const InvestmentsScreen = () => {
               innerRadius={55}
               centerLabelComponent={() => (
                 <View style={{ alignItems: 'center' }}>
-                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.text }}>
                     {formatCompactCurrency(totalMF)}
                   </Text>
-                  <Text style={{ fontSize: 10, color: '#999' }}>Total</Text>
+                  <Text style={{ fontSize: 10, color: colors.textSecondary }}>Total</Text>
                 </View>
               )}
             />
@@ -487,8 +491,8 @@ const InvestmentsScreen = () => {
               {data.map((d, i) => (
                 <View key={i} style={styles.legendItem}>
                   <View style={[styles.legendDot, { backgroundColor: d.color }]} />
-                  <Text style={styles.legendText} numberOfLines={1}>{d.label}</Text>
-                  <Text style={styles.legendValue}>{d.text}</Text>
+                  <Text style={[styles.legendText, { color: colors.textSecondary }]} numberOfLines={1}>{d.label}</Text>
+                  <Text style={[styles.legendValue, { color: colors.text }]}>{d.text}</Text>
                 </View>
               ))}
             </View>
@@ -502,8 +506,8 @@ const InvestmentsScreen = () => {
       const data = getMaturityTimeline();
       if (data.length === 0) return null;
       return (
-        <View style={styles.chartCard}>
-          <Text style={styles.chartTitle}>Upcoming Maturities</Text>
+        <View style={[styles.chartCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.chartTitle, { color: colors.textSecondary }]}>UPCOMING MATURITIES</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <BarChart
               data={data}
@@ -514,8 +518,10 @@ const InvestmentsScreen = () => {
               roundedTop
               xAxisThickness={1}
               yAxisThickness={1}
-              yAxisTextStyle={{ color: '#666', fontSize: 10 }}
-              xAxisLabelTextStyle={{ color: '#666', fontSize: 10 }}
+              yAxisTextStyle={{ color: colors.textSecondary, fontSize: 10 }}
+              xAxisLabelTextStyle={{ color: colors.textSecondary, fontSize: 10, fontWeight: '600' }}
+              xAxisColor={colors.border}
+              yAxisThickness={0}
               noOfSections={4}
               maxValue={Math.max(...data.map(d => d.value)) * 1.2 || 10}
             />
@@ -530,8 +536,8 @@ const InvestmentsScreen = () => {
       if (data.length === 0) return null;
       const totalLT = data.reduce((s, d) => s + d.value, 0);
       return (
-        <View style={styles.chartCard}>
-          <Text style={styles.chartTitle}>Fund Allocation</Text>
+        <View style={[styles.chartCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.chartTitle, { color: colors.textSecondary }]}>FUND ALLOCATION</Text>
           <View style={styles.pieContainer}>
             <PieChart
               data={data}
@@ -540,10 +546,10 @@ const InvestmentsScreen = () => {
               innerRadius={55}
               centerLabelComponent={() => (
                 <View style={{ alignItems: 'center' }}>
-                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.text }}>
                     {formatCompactCurrency(totalLT)}
                   </Text>
-                  <Text style={{ fontSize: 10, color: '#999' }}>Total</Text>
+                  <Text style={{ fontSize: 10, color: colors.textSecondary }}>Total</Text>
                 </View>
               )}
             />
@@ -551,8 +557,8 @@ const InvestmentsScreen = () => {
               {data.map((d, i) => (
                 <View key={i} style={styles.legendItem}>
                   <View style={[styles.legendDot, { backgroundColor: d.color }]} />
-                  <Text style={styles.legendText}>{d.label}</Text>
-                  <Text style={styles.legendValue}>{d.text}</Text>
+                  <Text style={[styles.legendText, { color: colors.textSecondary }]}>{d.label}</Text>
+                  <Text style={[styles.legendValue, { color: colors.text }]}>{d.text}</Text>
                 </View>
               ))}
             </View>
@@ -565,9 +571,9 @@ const InvestmentsScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Tab Selector */}
-      <View style={styles.tabContainer}>
+      <View style={[styles.tabContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         {([
           { key: 'stocks' as const, label: 'Stocks', count: tabSummary?.stocks.count },
           { key: 'mf' as const, label: 'MF', count: tabSummary?.mf.count },
@@ -576,14 +582,14 @@ const InvestmentsScreen = () => {
         ]).map((tab) => (
           <TouchableOpacity
             key={tab.key}
-            style={[styles.tab, activeTab === tab.key && styles.activeTab]}
+            style={[styles.tab, activeTab === tab.key && { borderBottomColor: colors.error }]}
             onPress={() => setActiveTab(tab.key)}
           >
-            <Text style={[styles.tabText, activeTab === tab.key && styles.activeTabText]}>
+            <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === tab.key && { color: colors.error, fontWeight: '700' }]}>
               {tab.label}
             </Text>
             {(tab.count ?? 0) > 0 && (
-              <Text style={[styles.tabCount, activeTab === tab.key && styles.activeTabCount]}>
+              <Text style={[styles.tabCount, { color: colors.textSecondary }, activeTab === tab.key && { color: colors.error }]}>
                 {tab.count}
               </Text>
             )}
@@ -593,7 +599,7 @@ const InvestmentsScreen = () => {
 
       <ScrollView
         style={styles.scrollView}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={refreshInvestments} />}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refreshInvestments} tintColor={colors.error} />}
       >
         {renderSummaryCard()}
         {renderChart()}
@@ -609,7 +615,6 @@ const InvestmentsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   centerContainer: {
     flex: 1,
@@ -618,23 +623,21 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#F44336',
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#2196F3',
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 24,
   },
   retryButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '700',
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    elevation: 2,
+    borderBottomWidth: 1,
   },
   tab: {
     flex: 1,
@@ -643,35 +646,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
-  activeTab: {
-    borderBottomColor: '#2196F3',
-  },
   tabText: {
     fontSize: 13,
-    color: '#666',
-  },
-  activeTabText: {
-    color: '#2196F3',
-    fontWeight: 'bold',
   },
   tabCount: {
     fontSize: 10,
-    color: '#999',
     marginTop: 2,
-  },
-  activeTabCount: {
-    color: '#2196F3',
   },
   scrollView: {
     flex: 1,
   },
   // Summary card
   summaryCard: {
-    backgroundColor: '#fff',
     margin: 12,
     padding: 16,
-    borderRadius: 12,
-    elevation: 2,
+    borderRadius: 18,
+    borderWidth: 1,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -683,13 +673,13 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 11,
-    color: '#999',
     marginBottom: 4,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   summaryValue: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: '700',
   },
   summaryGain: {
     fontSize: 14,
@@ -697,12 +687,11 @@ const styles = StyleSheet.create({
   },
   // Investment cards
   investmentCard: {
-    backgroundColor: '#fff',
     marginHorizontal: 12,
     marginBottom: 10,
     padding: 14,
-    borderRadius: 12,
-    elevation: 2,
+    borderRadius: 16,
+    borderWidth: 1,
   },
   investmentHeader: {
     flexDirection: 'row',
@@ -713,12 +702,10 @@ const styles = StyleSheet.create({
   investmentName: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: '#333',
     flex: 1,
   },
   investmentSubtext: {
     fontSize: 12,
-    color: '#999',
     flex: 1,
   },
   investmentRow: {
@@ -731,18 +718,17 @@ const styles = StyleSheet.create({
   },
   investmentLabel: {
     fontSize: 10,
-    color: '#999',
     marginBottom: 3,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   investmentValue: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#333',
   },
   investmentValueBold: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#333',
   },
   investmentGain: {
     fontSize: 14,
@@ -752,7 +738,7 @@ const styles = StyleSheet.create({
   platformBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 4,
+    borderRadius: 6,
   },
   platformBadgeText: {
     fontSize: 9,
@@ -763,7 +749,7 @@ const styles = StyleSheet.create({
   typeBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 3,
+    borderRadius: 4,
   },
   typeBadgeText: {
     fontSize: 9,
@@ -793,14 +779,13 @@ const styles = StyleSheet.create({
   },
   folioText: {
     fontSize: 11,
-    color: '#bbb',
     marginBottom: 4,
   },
   // Long-term specific
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#555',
+    letterSpacing: 1.2,
     marginHorizontal: 14,
     marginTop: 16,
     marginBottom: 8,
@@ -812,7 +797,6 @@ const styles = StyleSheet.create({
   },
   ltMetaText: {
     fontSize: 11,
-    color: '#888',
     fontFamily: 'monospace',
   },
   breakdownRow: {
@@ -820,7 +804,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
     gap: 24,
   },
   breakdownItem: {
@@ -828,38 +811,33 @@ const styles = StyleSheet.create({
   },
   breakdownLabel: {
     fontSize: 10,
-    color: '#999',
     marginBottom: 3,
   },
   breakdownValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#333',
   },
   maturityDate: {
     fontSize: 11,
-    color: '#FF9800',
     marginTop: 8,
   },
   emptyText: {
     textAlign: 'center',
-    color: '#999',
     fontSize: 14,
     marginTop: 32,
   },
   // Charts
   chartCard: {
-    backgroundColor: '#fff',
     margin: 12,
     padding: 16,
-    borderRadius: 12,
-    elevation: 2,
+    borderRadius: 18,
+    borderWidth: 1,
   },
   chartTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    marginBottom: 16,
   },
   pieContainer: {
     flexDirection: 'row',
@@ -883,13 +861,11 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 11,
-    color: '#666',
     flex: 1,
   },
   legendValue: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#333',
     marginLeft: 4,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,15 +10,14 @@ import {
 import Constants from 'expo-constants';
 import { useAuth } from '../contexts/AuthContext';
 
-let GoogleSignin: any;
-let statusCodes: any;
-try {
-  const googleSigninModule = require('@react-native-google-signin/google-signin');
-  GoogleSignin = googleSigninModule.GoogleSignin;
-  statusCodes = googleSigninModule.statusCodes;
-} catch (error) {
-  console.warn('[LoginScreen] Google Sign-In module unavailable:', error);
-}
+const getGoogleSigninModule = () => {
+  try {
+    return require('@react-native-google-signin/google-signin');
+  } catch (error) {
+    console.warn('[LoginScreen] Google Sign-In module unavailable:', error);
+    return null;
+  }
+};
 
 // Get Google Client ID from app config (loaded from .env)
 const GOOGLE_WEB_CLIENT_ID = Constants.expoConfig?.extra?.googleClientId || '';
@@ -27,18 +26,12 @@ const LoginScreen: React.FC = () => {
   const { loginWithGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // Configure Google Sign-In
-    if (GoogleSignin?.configure) {
-      GoogleSignin.configure({
-        webClientId: GOOGLE_WEB_CLIENT_ID,
-        offlineAccess: false,
-      });
-    }
-  }, []);
-
   const handleGoogleLogin = async () => {
-    if (!GoogleSignin) {
+    const googleSigninModule = getGoogleSigninModule();
+    const GoogleSignin = googleSigninModule?.GoogleSignin;
+    const statusCodes = googleSigninModule?.statusCodes || {};
+
+    if (!GoogleSignin?.signIn) {
       Alert.alert(
         'Google Sign-In Unavailable',
         'Google Sign-In is not available in this build. Please install the latest app build.'
@@ -56,6 +49,11 @@ const LoginScreen: React.FC = () => {
 
     try {
       setLoading(true);
+
+      GoogleSignin.configure({
+        webClientId: GOOGLE_WEB_CLIENT_ID,
+        offlineAccess: false,
+      });
 
       // Check if device supports Google Play Services
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });

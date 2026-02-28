@@ -2,8 +2,6 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import LoginScreen from '../screens/LoginScreen';
-import AppNavigator from './AppNavigator';
 
 const Stack = createStackNavigator();
 
@@ -21,9 +19,9 @@ const RootNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {user ? (
-        <Stack.Screen name="Main" component={AppNavigator} />
+        <Stack.Screen name="Main" component={require('./AppNavigator').default} />
       ) : (
-        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Login" component={require('../screens/LoginScreen').default} />
       )}
     </Stack.Navigator>
   );
