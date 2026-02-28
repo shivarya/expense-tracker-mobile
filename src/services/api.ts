@@ -246,7 +246,7 @@ class ApiService {
   }
 
   // Expense Analytics
-  async getExpenseSummary(period: '3m' | '6m' | '1y' = '6m') {
+  async getExpenseSummary(period: '1m' | '3m' | '6m' | '1y' = '6m') {
     const response = await this.api.get(`/api/expenses/summary`, {
       params: { period }
     });

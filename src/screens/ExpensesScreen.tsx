@@ -64,7 +64,7 @@ interface ExpenseData {
   monthly_trends: MonthlyExpense[];
 }
 
-type Period = '3m' | '6m' | '1y';
+type Period = '1m' | '3m' | '6m' | '1y';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -194,7 +194,7 @@ const ExpensesScreen = () => {
     ) : undefined,
   }));
 
-  const periodLabels: Record<Period, string> = { '3m': '3 months', '6m': '6 months', '1y': '1 year' };
+  const periodLabels: Record<Period, string> = { '1m': '1 month', '3m': '3 months', '6m': '6 months', '1y': '1 year' };
 
   return (
     <ScrollView
@@ -205,7 +205,7 @@ const ExpensesScreen = () => {
     >
       {/* ========= Period Selector ========= */}
       <View style={styles.periodRow}>
-        {(['3m', '6m', '1y'] as Period[]).map((p) => (
+        {(['1m', '3m', '6m', '1y'] as Period[]).map((p) => (
           <TouchableOpacity
             key={p}
             style={[
@@ -629,15 +629,15 @@ const styles = StyleSheet.create({
   },
 
   // Category grid (CRED-style cards)
-  // Available = SCREEN_WIDTH - 32 (margin) - 40 (padding) = SCREEN_WIDTH - 72
-  // 3 cards with 2 gaps of 10 = 20px → card = floor((SCREEN_WIDTH - 72 - 20) / 3)
+  // Available = SCREEN_WIDTH - 32 (margin) - 2 (border) - 40 (padding) = SCREEN_WIDTH - 74
+  // 3 cards with 2 gaps of 8 = 16px → card = floor((SCREEN_WIDTH - 74 - 16) / 3)
   categoryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   categoryCard: {
-    width: Math.floor((SCREEN_WIDTH - 92) / 3),
+    width: Math.floor((SCREEN_WIDTH - 90) / 3),
     paddingVertical: 12,
     paddingHorizontal: 10,
     borderRadius: 16,
