@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Dimensions,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { PieChart, BarChart } from 'react-native-gifted-charts';
 import { useTheme } from '../contexts/ThemeContext';
 import { formatCurrency, formatCompactCurrency } from '../utils/format';
@@ -41,6 +42,7 @@ const CATEGORY_ICONS: Record<string, string> = {
 };
 
 interface CategoryExpense {
+  category_id?: number;
   category: string;
   amount: number;
   percentage: number;
@@ -80,6 +82,8 @@ const getMonthLabel = (monthStr: string) => {
 const getCategoryIcon = (name: string) =>
   CATEGORY_ICONS[name] ?? CATEGORY_ICONS[name?.toLowerCase()] ?? '📦';
 
+const toISODate = (date: Date) => date.toISOString().split('T')[0];
+
 /** Fill in missing months so the chart always shows every month in the period */
 const fillMissingMonths = (trends: MonthlyExpense[], startDate: string): MonthlyExpense[] => {
   if (!startDate) return trends;
@@ -105,6 +109,7 @@ const ExpensesScreen = () => {
   const [data, setData] = useState<ExpenseData | null>(null);
   const [period, setPeriod] = useState<Period>('6m');
   const { colors, isDark } = useTheme();
+  const navigation = useNavigation<any>();
 
   const fetchData = useCallback(async () => {
     try {
@@ -195,6 +200,30 @@ const ExpensesScreen = () => {
   }));
 
   const periodLabels: Record<Period, string> = { '1m': '1 month', '3m': '3 months', '6m': '6 months', '1y': '1 year' };
+
+  const getStartDateForPeriod = (periodValue: Period) => {
+    const now = new Date();
+    const start = new Date(now);
+    if (periodValue === '1m') start.setMonth(now.getMonth() - 1);
+    if (periodValue === '3m') start.setMonth(now.getMonth() - 3);
+    if (periodValue === '6m') start.setMonth(now.getMonth() - 6);
+    if (periodValue === '1y') start.setFullYear(now.getFullYear() - 1);
+    return toISODate(start);
+  };
+
+  const openTransactions = (category?: CategoryExpense) => {
+    navigation.navigate('Transactions', {
+      categoryId: category?.category_id,
+      categoryName: category?.category,
+      headerTitle: category?.category || 'Transactions',
+      startDate: getStartDateForPeriod(period),
+      endDate: toISODate(new Date()),
+    });
+  };
+
+  const openCategoriesSpend = () => {
+    navigation.navigate('CategoriesSpend', { period });
+  };
 
   return (
     <ScrollView
@@ -300,6 +329,26 @@ const ExpensesScreen = () => {
         </View>
       </View>
 
+      <View style={styles.quickActionsRow}>
+        <TouchableOpacity
+          style={[styles.quickActionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => openTransactions()}
+          activeOpacity={0.75}
+        >
+          <Text style={[styles.quickActionTitle, { color: colors.text }]}>View Transactions</Text>
+          <Text style={[styles.quickActionSub, { color: colors.textSecondary }]}>Filter by month, date, category</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.quickActionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={openCategoriesSpend}
+          activeOpacity={0.75}
+        >
+          <Text style={[styles.quickActionTitle, { color: colors.text }]}>All Categories Spend</Text>
+          <Text style={[styles.quickActionSub, { color: colors.textSecondary }]}>Full category-wise breakdown</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* ========= Top Categories Grid ========= */}
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Spending by Category</Text>
@@ -312,7 +361,12 @@ const ExpensesScreen = () => {
             {categoriesWithColors.slice(0, 6).map((item, i) => {
               const pct = totalExpenses > 0 ? (Number(item.amount) / totalExpenses) * 100 : 0;
               return (
-                <View key={i} style={[styles.categoryCard, { backgroundColor: isDark ? '#141414' : '#FAFAFA', borderColor: colors.border }]}>
+                <TouchableOpacity
+                  key={i}
+                  style={[styles.categoryCard, { backgroundColor: isDark ? '#141414' : '#FAFAFA', borderColor: colors.border }]}
+                  activeOpacity={0.75}
+                  onPress={() => openTransactions(item)}
+                >
                   <View style={styles.categoryCardTop}>
                     <View style={[styles.categoryIconCircle, { backgroundColor: item._color + '18' }]}>
                       <Text style={styles.categoryIconText}>{getCategoryIcon(item.category)}</Text>
@@ -331,7 +385,7 @@ const ExpensesScreen = () => {
                       backgroundColor: item._color,
                     }]} />
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -357,7 +411,7 @@ const ExpensesScreen = () => {
             const pct = totalExpenses > 0 ? (Number(item.amount) / totalExpenses) * 100 : 0;
             return (
               <View key={i}>
-                <View style={styles.breakdownRow}>
+                <TouchableOpacity style={styles.breakdownRow} activeOpacity={0.75} onPress={() => openTransactions(item)}>
                   <View style={[styles.breakdownIcon, { backgroundColor: item._color + '18' }]}>
                     <Text style={{ fontSize: 18 }}>{getCategoryIcon(item.category)}</Text>
                   </View>
@@ -381,7 +435,7 @@ const ExpensesScreen = () => {
                       }]} />
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
                 {i < categoriesWithColors.length - 1 && (
                   <View style={[styles.breakdownDivider, { backgroundColor: colors.divider }]} />
                 )}
@@ -606,6 +660,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+
+  quickActionsRow: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    gap: 10,
+  },
+  quickActionBtn: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  quickActionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  quickActionSub: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 
   // Generic card

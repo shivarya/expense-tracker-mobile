@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 // Import screens
 import DashboardScreen from '../screens/DashboardScreen';
 import InvestmentsScreen from '../screens/InvestmentsScreen';
-import ExpensesScreen from '../screens/ExpensesScreen';
+import ExpensesStackNavigator from './ExpensesStackNavigator';
 import AccountsScreen from '../screens/AccountsScreen';
 import MoreScreen from '../screens/MoreScreen';
 
@@ -45,7 +45,11 @@ const AppNavigator = () => {
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Investments" component={InvestmentsScreen} />
-      <Tab.Screen name="Expenses" component={ExpensesScreen} />
+      <Tab.Screen
+        name="Expenses"
+        component={ExpensesStackNavigator}
+        options={{ headerShown: false }}
+      />
       <Tab.Screen name="Accounts" component={AccountsScreen} />
       <Tab.Screen name="More" component={MoreScreen} />
     </Tab.Navigator>
