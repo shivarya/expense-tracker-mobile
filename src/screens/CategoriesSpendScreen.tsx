@@ -78,6 +78,10 @@ const CategoriesSpendScreen = () => {
     });
   };
 
+  const openMasterCategories = () => {
+    navigation.navigate('MasterCategories');
+  };
+
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
@@ -106,6 +110,17 @@ const CategoriesSpendScreen = () => {
               <Text style={[styles.periodText, { color: period === item ? (isDark ? '#000' : '#fff') : colors.textSecondary }]}>{periodLabels[item]}</Text>
             </TouchableOpacity>
           ))}
+        </View>
+
+        <View style={styles.actionsWrap}>
+          <TouchableOpacity
+            style={[styles.manageBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={openMasterCategories}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.manageBtnTitle, { color: colors.text }]}>Manage Master Categories</Text>
+            <Text style={[styles.manageBtnSub, { color: colors.textSecondary }]}>Consolidate duplicates, add or edit categories</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -154,6 +169,25 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   periodText: { fontSize: 12, fontWeight: '700' },
+  actionsWrap: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  manageBtn: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  manageBtnTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 1,
+  },
+  manageBtnSub: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
   summaryCard: {
     marginHorizontal: 16,
     marginBottom: 10,

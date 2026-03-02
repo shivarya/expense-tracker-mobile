@@ -25,6 +25,7 @@ interface RouteParams {
   categoryName?: string;
   startDate?: string;
   endDate?: string;
+  initialMonthKey?: 'current';
 }
 
 interface MonthOption {
@@ -35,6 +36,11 @@ interface MonthOption {
 }
 
 const formatDate = (date: Date) => date.toISOString().split('T')[0];
+
+const getCurrentMonthKey = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
 
 const getMonthOptions = (monthsBack: number = 6): MonthOption[] => {
   const now = new Date();
@@ -78,7 +84,7 @@ const TransactionsScreen = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [summary, setSummary] = useState<any>(null);
 
-  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [selectedMonth, setSelectedMonth] = useState<string>(params.initialMonthKey === 'current' ? getCurrentMonthKey() : 'all');
   const [selectedRange, setSelectedRange] = useState<DateRangeKey>('30d');
   const [selectedType, setSelectedType] = useState<TxnType>('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(params.categoryId);
@@ -117,8 +123,10 @@ const TransactionsScreen = () => {
   }, [monthOptions, params.endDate, params.startDate, selectedCategoryId, selectedMonth, selectedRange, selectedType]);
 
   useEffect(() => {
+    // Categories already loaded by DataContext on login; refresh once on mount only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     refreshCategories();
-  }, [refreshCategories]);
+  }, []);
 
   useEffect(() => {
     fetchTransactions(true);
@@ -132,6 +140,28 @@ const TransactionsScreen = () => {
   const onEditCategoryTap = (txn: Transaction) => {
     setSelectedTxn(txn);
     setEditCategoryPickerVisible(true);
+  };
+
+  const onDeleteTxn = (txn: Transaction) => {
+    Alert.alert(
+      'Delete Transaction',
+      `Delete "${txn.merchant || txn.description || 'this transaction'}" for ${txn.transaction_type === 'debit' ? '-' : '+'}₹${Number(txn.amount).toLocaleString('en-IN')}?\n\nIf synced from SMS, it won't be re-created on next sync.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await ApiService.deleteTransaction(txn.id);
+              setTransactions((prev) => prev.filter((t) => t.id !== txn.id));
+            } catch (error: any) {
+              Alert.alert('Error', error?.message || 'Failed to delete transaction');
+            }
+          },
+        },
+      ],
+    );
   };
 
   const onSelectTxnCategory = async (categoryId: number) => {
@@ -265,7 +295,12 @@ const TransactionsScreen = () => {
         <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
           {transactions.map((txn, index) => (
             <View key={txn.id}>
-              <View style={styles.txnRow}>
+              <TouchableOpacity
+                style={styles.txnRow}
+                onLongPress={() => onDeleteTxn(txn)}
+                activeOpacity={0.7}
+                delayLongPress={400}
+              >
                 <View style={[styles.txnDot, { backgroundColor: txn.transaction_type === 'credit' ? colors.success : colors.error }]} />
                 <View style={styles.txnInfo}>
                   <Text style={[styles.txnMerchant, { color: colors.text }]} numberOfLines={1}>{txn.merchant || txn.description || 'Transaction'}</Text>
@@ -282,7 +317,7 @@ const TransactionsScreen = () => {
                 <Text style={[styles.txnAmount, { color: txn.transaction_type === 'credit' ? colors.success : colors.error }]}>
                   {txn.transaction_type === 'credit' ? '+' : '-'}{formatCurrency(Number(txn.amount), 0)}
                 </Text>
-              </View>
+              </TouchableOpacity>
               {index < transactions.length - 1 && <View style={[styles.divider, { backgroundColor: colors.divider }]} />}
             </View>
           ))}

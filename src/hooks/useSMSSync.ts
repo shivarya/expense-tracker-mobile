@@ -86,8 +86,11 @@ export const useSMSSync = () => {
         throw new Error('SMS permission denied');
       }
 
-      // Get SMS from last sync or last 30 days
-      const minDate = lastSyncTime || Date.now() - (30 * 24 * 60 * 60 * 1000);
+      // Read directly from AsyncStorage (not state) to avoid race condition
+      // where state may not yet reflect the persisted timestamp
+      const storedTimestamp = await AsyncStorage.getItem(LAST_SYNC_KEY);
+      const lastSync = storedTimestamp ? parseInt(storedTimestamp, 10) : null;
+      const minDate = lastSync || Date.now() - (30 * 24 * 60 * 60 * 1000);
       const SmsAndroid = getSmsAndroidModule();
 
       if (!SmsAndroid?.list) {

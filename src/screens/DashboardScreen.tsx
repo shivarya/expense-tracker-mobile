@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useData } from '../contexts/DataContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -24,6 +25,7 @@ const DashboardScreen = () => {
   const { dashboard, loading, error, refreshDashboard } = useData();
   const { colors } = useTheme();
   const { user } = useAuth();
+  const navigation = useNavigation<any>();
 
   const [monthExpenses, setMonthExpenses] = useState<number>(0);
   const [monthCount, setMonthCount] = useState<number>(0);
@@ -104,6 +106,16 @@ const DashboardScreen = () => {
   const handleRefresh = async () => {
     await refreshDashboard();
     await fetchCurrentMonthExpenses();
+  };
+
+  const openCurrentMonthTransactions = () => {
+    navigation.navigate('Expenses', {
+      screen: 'Transactions',
+      params: {
+        headerTitle: 'Transactions',
+        initialMonthKey: 'current',
+      },
+    });
   };
 
   if (loading && !dashboard) {
@@ -191,7 +203,11 @@ const DashboardScreen = () => {
       </View>
 
       {/* Current Month Expenses */}
-      <View style={[styles.monthCard, { backgroundColor: colors.error }]}>
+      <TouchableOpacity
+        style={[styles.monthCard, { backgroundColor: colors.error }]}
+        activeOpacity={0.9}
+        onPress={openCurrentMonthTransactions}
+      >
         <View style={{ flex: 1 }}>
           <Text style={styles.monthLabel}>{monthName.toUpperCase()} SPENT</Text>
           <Text style={styles.monthValue}>
@@ -207,7 +223,7 @@ const DashboardScreen = () => {
         <View style={styles.monthBadge}>
           <Text style={styles.monthBadgeText}>THIS{'\n'}MONTH</Text>
         </View>
-      </View>
+      </TouchableOpacity>
 
       {/* Portfolio Split */}
       {pieData.length > 0 && (

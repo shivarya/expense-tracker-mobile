@@ -225,6 +225,10 @@ const ExpensesScreen = () => {
     navigation.navigate('CategoriesSpend', { period });
   };
 
+  const openMasterCategories = () => {
+    navigation.navigate('MasterCategories');
+  };
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -346,6 +350,15 @@ const ExpensesScreen = () => {
         >
           <Text style={[styles.quickActionTitle, { color: colors.text }]}>All Categories Spend</Text>
           <Text style={[styles.quickActionSub, { color: colors.textSecondary }]}>Full category-wise breakdown</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.quickActionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={openMasterCategories}
+          activeOpacity={0.75}
+        >
+          <Text style={[styles.quickActionTitle, { color: colors.text }]}>Master Categories</Text>
+          <Text style={[styles.quickActionSub, { color: colors.textSecondary }]}>Consolidate duplicates and edit list</Text>
         </TouchableOpacity>
       </View>
 

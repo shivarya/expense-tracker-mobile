@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { DashboardData } from '../types/dashboard';
 import { Investments } from '../types/investments';
 import { BankAccount, Category } from '../types/transactions';
@@ -30,7 +30,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshDashboard = async () => {
+  const refreshDashboard = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -45,9 +45,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const refreshInvestments = async () => {
+  const refreshInvestments = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -59,9 +59,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const refreshAccounts = async () => {
+  const refreshAccounts = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -73,30 +73,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const refreshCategories = async () => {
+  const refreshCategories = useCallback(async () => {
     try {
-      setLoading(true);
+      // Don't set global loading=true for categories — it's a background refresh
       setError(null);
       const data = await ApiService.getCategories();
       setCategories(data);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch categories');
       console.error('Categories error:', err);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, []);
 
-  const refreshAll = async () => {
+  const refreshAll = useCallback(async () => {
     await Promise.all([
       refreshDashboard(),
       refreshInvestments(),
       refreshAccounts(),
       refreshCategories(),
     ]);
-  };
+  }, [refreshDashboard, refreshInvestments, refreshAccounts, refreshCategories]);
 
   // Load initial data only when user is authenticated
   useEffect(() => {
@@ -106,6 +104,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } else {
       console.log('[DataContext] No user, skipping data fetch');
     }
+  // refreshAll is stable via useCallback — safe to include
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   return (

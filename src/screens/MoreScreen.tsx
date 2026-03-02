@@ -1,15 +1,56 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSMSSync } from '../hooks/useSMSSync';
 import { useData } from '../contexts/DataContext';
+import { useAuth } from '../contexts/AuthContext';
+import ApiService from '../services/api';
 
 const MoreScreen = () => {
   const { theme, setTheme, isDark, colors } = useTheme();
   const { syncSMS, isSyncing, lastSyncTime, resetSyncHistory } = useSMSSync();
   const { refreshAll } = useData();
+  const { logout } = useAuth();
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This will permanently delete your account and ALL your data including transactions, categories, and accounts. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete My Account',
+          style: 'destructive',
+          onPress: async () => {
+            Alert.alert(
+              'Are you absolutely sure?',
+              'Type your confirmation: all data will be lost forever.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Yes, Delete Everything',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      setIsDeletingAccount(true);
+                      await ApiService.deleteAccount();
+                      await logout();
+                    } catch (error: any) {
+                      setIsDeletingAccount(false);
+                      Alert.alert('Error', error.message || 'Failed to delete account. Please try again.');
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
   
   const menuItems = [
     { id: 'emis', icon: 'cash-outline', label: 'EMI Tracking', screen: 'EMIs' },
@@ -192,6 +233,57 @@ const MoreScreen = () => {
         </View>
       </View>
 
+      <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Account</Text>
+        <TouchableOpacity
+          style={[styles.deleteAccountButton, { opacity: isDeletingAccount ? 0.6 : 1 }]}
+          onPress={handleDeleteAccount}
+          disabled={isDeletingAccount}
+        >
+          <Ionicons name="trash-outline" size={20} color="#fff" />
+          <Text style={styles.deleteAccountText}>
+            {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
+          </Text>
+        </TouchableOpacity>
+        <Text style={[styles.deleteAccountWarning, { color: colors.textSecondary }]}>
+          Permanently deletes your account and all data. Cannot be undone.
+        </Text>
+      </View>
+
+      <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Legal</Text>
+        <TouchableOpacity
+          style={[styles.legalItem, { borderBottomColor: colors.border }]}
+          onPress={() => Linking.openURL('https://shivarya.dev/expense_tracker/terms.html')}
+        >
+          <View style={styles.menuLeft}>
+            <Ionicons name="document-text-outline" size={22} color={colors.primary} />
+            <Text style={[styles.menuLabel, { color: colors.text }]}>Terms of Use</Text>
+          </View>
+          <Ionicons name="open-outline" size={18} color={colors.textSecondary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.legalItem, { borderBottomColor: colors.border }]}
+          onPress={() => Linking.openURL('https://shivarya.dev/expense_tracker/disclaimer.html')}
+        >
+          <View style={styles.menuLeft}>
+            <Ionicons name="alert-circle-outline" size={22} color={colors.primary} />
+            <Text style={[styles.menuLabel, { color: colors.text }]}>Disclaimer</Text>
+          </View>
+          <Ionicons name="open-outline" size={18} color={colors.textSecondary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.legalItem}
+          onPress={() => Linking.openURL('https://shivarya.dev/expense_tracker/privacy.html')}
+        >
+          <View style={styles.menuLeft}>
+            <Ionicons name="shield-checkmark-outline" size={22} color={colors.primary} />
+            <Text style={[styles.menuLabel, { color: colors.text }]}>Privacy Policy</Text>
+          </View>
+          <Ionicons name="open-outline" size={18} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.placeholderContainer}>
         <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
           Current Theme: {theme === 'auto' ? `Auto (${isDark ? 'Dark' : 'Light'})` : theme.charAt(0).toUpperCase() + theme.slice(1)}{'\n\n'}
@@ -281,6 +373,34 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: 14,
     lineHeight: 24,
+  },
+  legalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#D32F2F',
+    borderRadius: 10,
+    paddingVertical: 14,
+    marginVertical: 12,
+  },
+  deleteAccountText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    marginLeft: 10,
+  },
+  deleteAccountWarning: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 14,
+    lineHeight: 18,
   },
   syncButton: {
     flexDirection: 'row',

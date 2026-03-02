@@ -239,6 +239,46 @@ class ApiService {
     return response.data.data;
   }
 
+  async createCategory(payload: Partial<Category> & { name: string; type: Category['type'] }) {
+    const response = await this.api.post<ApiResponse<{ id: number }>>('/categories', payload);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to create category');
+    }
+    return response.data.data;
+  }
+
+  async updateCategory(categoryId: number, payload: Partial<Category>) {
+    const response = await this.api.put<ApiResponse<{ id: number }>>(`/categories/${categoryId}`, payload);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to update category');
+    }
+    return response.data.data;
+  }
+
+  async deleteCategory(categoryId: number) {
+    const response = await this.api.delete<ApiResponse<null>>(`/categories/${categoryId}`);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to delete category');
+    }
+    return true;
+  }
+
+  async consolidateCategories(): Promise<{ merged_categories: number; duplicate_groups: number }> {
+    const response = await this.api.post<ApiResponse<{ merged_categories: number; duplicate_groups: number }>>('/categories/consolidate', {});
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to consolidate categories');
+    }
+    return response.data.data;
+  }
+
+  async autoFixCategories(): Promise<{ fixed: number; deleted: number; details: any[] }> {
+    const response = await this.api.post<ApiResponse<{ fixed: number; deleted: number; details: any[] }>>('/categories/auto-fix', {});
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Auto-fix failed');
+    }
+    return response.data.data;
+  }
+
   // Sync
   async getSyncLogs(limit: number = 50) {
     const response = await this.api.get(`/sync/logs?limit=${limit}`);
@@ -294,6 +334,17 @@ class ApiService {
       await AsyncStorage.setItem('auth_token', response.data.data.token);
     }
     return response.data;
+  }
+
+  async deleteAccount() {
+    const response = await this.api.delete<ApiResponse<null>>('/auth/account');
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to delete account');
+    }
+    // Clear local auth tokens
+    await AsyncStorage.removeItem('auth_token');
+    await AsyncStorage.removeItem('user_data');
+    return true;
   }
 }
 
