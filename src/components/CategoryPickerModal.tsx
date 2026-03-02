@@ -99,7 +99,7 @@ const CategoryPickerModal: React.FC<CategoryPickerModalProps> = ({
 
           {/* Category List */}
           <FlatList
-            data={categories}
+            data={[...categories].sort((a, b) => a.name.localeCompare(b.name))}
             keyExtractor={(item) => item.id.toString()}
             renderItem={renderCategory}
             showsVerticalScrollIndicator={false}

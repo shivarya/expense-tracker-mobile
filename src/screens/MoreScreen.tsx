@@ -1,13 +1,19 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSMSSync } from '../hooks/useSMSSync';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import ApiService from '../services/api';
+import { MoreStackParamList } from '../navigation/MoreStackNavigator';
+
+type MoreNavProp = NativeStackNavigationProp<MoreStackParamList, 'MoreHome'>;
 
 const MoreScreen = () => {
+  const navigation = useNavigation<MoreNavProp>();
   const { theme, setTheme, isDark, colors } = useTheme();
   const { syncSMS, isSyncing, lastSyncTime, resetSyncHistory } = useSMSSync();
   const { refreshAll } = useData();
@@ -52,10 +58,9 @@ const MoreScreen = () => {
     );
   };
   
-  const menuItems = [
-    { id: 'emis', icon: 'cash-outline', label: 'EMI Tracking', screen: 'EMIs' },
+  const menuItems: { id: string; icon: string; label: string; screen: keyof MoreStackParamList }[] = [
+    { id: 'contacts', icon: 'people-outline', label: 'Trusted Contacts', screen: 'TrustedContacts' },
     { id: 'categories', icon: 'pricetags-outline', label: 'Categories', screen: 'Categories' },
-    { id: 'settings', icon: 'settings-outline', label: 'Settings', screen: 'Settings' },
   ];
 
   const handleThemeChange = (value: 'light' | 'dark' | 'auto') => {
@@ -192,7 +197,11 @@ const MoreScreen = () => {
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Features</Text>
         {menuItems.map((item) => (
-          <TouchableOpacity key={item.id} style={[styles.menuItem, { borderBottomColor: colors.border }]}>
+          <TouchableOpacity
+            key={item.id}
+            style={[styles.menuItem, { borderBottomColor: colors.border }]}
+            onPress={() => navigation.navigate(item.screen)}
+          >
             <View style={styles.menuLeft}>
               <Ionicons name={item.icon as any} size={24} color={colors.primary} />
               <Text style={[styles.menuLabel, { color: colors.text }]}>{item.label}</Text>

@@ -39,6 +39,14 @@ export interface Transaction {
   account_type?: string;
 }
 
+export interface TrustedContact {
+  id: number;
+  name: string;
+  upi_id: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
 export interface EMI {
   id: number;
   loan_name: string;

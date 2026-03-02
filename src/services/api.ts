@@ -4,7 +4,7 @@ import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiResponse, DashboardData } from '../types/dashboard';
 import { Investments } from '../types/investments';
-import { Transaction, BankAccount, EMI, Category } from '../types/transactions';
+import { Transaction, BankAccount, EMI, Category, TrustedContact } from '../types/transactions';
 
 class ApiService {
   private api: AxiosInstance;
@@ -334,6 +334,39 @@ class ApiService {
       await AsyncStorage.setItem('auth_token', response.data.data.token);
     }
     return response.data;
+  }
+
+  // Trusted Contacts
+  async getTrustedContacts(): Promise<TrustedContact[]> {
+    const response = await this.api.get<ApiResponse<TrustedContact[]>>('/contacts');
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch trusted contacts');
+    }
+    return response.data.data;
+  }
+
+  async createTrustedContact(data: { name: string; upi_id?: string; notes?: string }): Promise<TrustedContact> {
+    const response = await this.api.post<ApiResponse<TrustedContact>>('/contacts', data);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to create trusted contact');
+    }
+    return response.data.data;
+  }
+
+  async updateTrustedContact(id: number, data: { name?: string; upi_id?: string | null; notes?: string | null }): Promise<TrustedContact> {
+    const response = await this.api.put<ApiResponse<TrustedContact>>(`/contacts/${id}`, data);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to update trusted contact');
+    }
+    return response.data.data;
+  }
+
+  async deleteTrustedContact(id: number): Promise<boolean> {
+    const response = await this.api.delete<ApiResponse<null>>(`/contacts/${id}`);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to delete trusted contact');
+    }
+    return true;
   }
 
   async deleteAccount() {

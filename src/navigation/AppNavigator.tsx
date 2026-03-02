@@ -7,7 +7,7 @@ import DashboardScreen from '../screens/DashboardScreen';
 import InvestmentsScreen from '../screens/InvestmentsScreen';
 import ExpensesStackNavigator from './ExpensesStackNavigator';
 import AccountsScreen from '../screens/AccountsScreen';
-import MoreScreen from '../screens/MoreScreen';
+import MoreStackNavigator from './MoreStackNavigator';
 
 const Tab = createBottomTabNavigator();
 
@@ -51,7 +51,11 @@ const AppNavigator = () => {
         options={{ headerShown: false }}
       />
       <Tab.Screen name="Accounts" component={AccountsScreen} />
-      <Tab.Screen name="More" component={MoreScreen} />
+      <Tab.Screen
+        name="More"
+        component={MoreStackNavigator}
+        options={{ headerShown: false }}
+      />
     </Tab.Navigator>
   );
 };
