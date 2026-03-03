@@ -66,7 +66,7 @@ interface ExpenseData {
   monthly_trends: MonthlyExpense[];
 }
 
-type Period = '1m' | '3m' | '6m' | '1y';
+type Period = 'cm' | '1m' | '3m' | '6m' | '1y';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -199,11 +199,12 @@ const ExpensesScreen = () => {
     ) : undefined,
   }));
 
-  const periodLabels: Record<Period, string> = { '1m': '1 month', '3m': '3 months', '6m': '6 months', '1y': '1 year' };
+  const periodLabels: Record<Period, string> = { 'cm': 'This Month', '1m': '1 month', '3m': '3 months', '6m': '6 months', '1y': '1 year' };
 
   const getStartDateForPeriod = (periodValue: Period) => {
     const now = new Date();
     const start = new Date(now);
+    if (periodValue === 'cm') { start.setDate(1); }
     if (periodValue === '1m') start.setMonth(now.getMonth() - 1);
     if (periodValue === '3m') start.setMonth(now.getMonth() - 3);
     if (periodValue === '6m') start.setMonth(now.getMonth() - 6);
@@ -238,7 +239,7 @@ const ExpensesScreen = () => {
     >
       {/* ========= Period Selector ========= */}
       <View style={styles.periodRow}>
-        {(['1m', '3m', '6m', '1y'] as Period[]).map((p) => (
+        {(['cm', '1m', '3m', '6m', '1y'] as Period[]).map((p) => (
           <TouchableOpacity
             key={p}
             style={[
@@ -573,20 +574,22 @@ const styles = StyleSheet.create({
   // Period pills
   periodRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
   periodPill: {
-    paddingHorizontal: 20,
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 4,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
   },
   periodPillText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
+    textAlign: 'center',
   },
 
   // Hero card

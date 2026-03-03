@@ -13,7 +13,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import ApiService from '../services/api';
 import { formatCurrency } from '../utils/format';
 
-type Period = '1m' | '3m' | '6m' | '1y';
+type Period = 'cm' | '1m' | '3m' | '6m' | '1y';
 
 interface CategoryExpense {
   category_id?: number;
@@ -31,6 +31,7 @@ interface ExpenseData {
 }
 
 const periodLabels: Record<Period, string> = {
+  'cm': 'This Month',
   '1m': '1 month',
   '3m': '3 months',
   '6m': '6 months',
@@ -97,7 +98,7 @@ const CategoriesSpendScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.periodRow}>
-          {(['1m', '3m', '6m', '1y'] as Period[]).map((item) => (
+          {(['cm', '1m', '3m', '6m', '1y'] as Period[]).map((item) => (
             <TouchableOpacity
               key={item}
               style={[
@@ -156,19 +157,20 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   periodRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 8,
   },
   periodPill: {
+    flex: 1,
+    alignItems: 'center',
     borderWidth: 1,
     borderRadius: 16,
-    paddingHorizontal: 12,
+    paddingHorizontal: 4,
     paddingVertical: 7,
   },
-  periodText: { fontSize: 12, fontWeight: '700' },
+  periodText: { fontSize: 11, fontWeight: '700', textAlign: 'center' },
   actionsWrap: {
     paddingHorizontal: 16,
     paddingBottom: 8,

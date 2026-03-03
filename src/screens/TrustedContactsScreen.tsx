@@ -184,7 +184,7 @@ const TrustedContactsScreen = () => {
 
       {/* FAB */}
       <TouchableOpacity style={[styles.fab, { backgroundColor: colors.primary }]} onPress={openAdd}>
-        <Ionicons name="add" size={28} color="#fff" />
+        <Ionicons name="add" size={28} color={colors.background} />
       </TouchableOpacity>
 
       {/* Add / Edit Modal */}
@@ -237,9 +237,9 @@ const TrustedContactsScreen = () => {
                 disabled={saving}
               >
                 {saving ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={colors.background} />
                 ) : (
-                  <Text style={[styles.btnText, { color: '#fff' }]}>Save</Text>
+                  <Text style={[styles.btnText, { color: colors.background }]}>Save</Text>
                 )}
               </TouchableOpacity>
             </View>

@@ -15,7 +15,7 @@ export type ExpensesStackParamList = {
     endDate?: string;
   } | undefined;
   CategoriesSpend: {
-    period?: '1m' | '3m' | '6m' | '1y';
+    period?: 'cm' | '1m' | '3m' | '6m' | '1y';
   } | undefined;
   MasterCategories: undefined;
 };

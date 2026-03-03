@@ -105,11 +105,11 @@ const MoreScreen = () => {
           disabled={isSyncing}
         >
           {isSyncing ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.background} />
           ) : (
             <>
-              <Ionicons name="phone-portrait-outline" size={24} color="#fff" />
-              <Text style={styles.syncButtonText}>Sync SMS Transactions</Text>
+              <Ionicons name="phone-portrait-outline" size={24} color={colors.background} />
+              <Text style={[styles.syncButtonText, { color: colors.background }]}>Sync SMS Transactions</Text>
             </>
           )}
         </TouchableOpacity>
