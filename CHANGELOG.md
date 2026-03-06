@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.5.0] - 2026-03-05
+### Added
+- Automatic daily SMS sync trigger on app startup and app foreground resume.
+- Android real-time SMS listener bridge path with queued message drain support.
+- Auto-sync summary notifications for background-triggered SMS sync runs.
+
+### Changed
+- Expanded SMS sync result details in More screen (saved debit/credit counts and latest auto-sync state).
+- Improved transaction sync integration with server webhook parsing endpoint.
+- Bumped app version to 2.5.0 (android versionCode 5, iOS build 5).
+
+### Fixed
+- Expenses period chips now respect top safe area and no longer overlap status bar icons on physical devices.
+- Re-tapping the Expenses tab now returns to Expenses overview from nested screens.
+- Dashboard deep link to Transactions now preserves expected Expenses back navigation flow.
+
+## [2.4.0] - 2026-03-03
+### Added
+- AI‑powered categorization now used by scraper/agent path; transactions are enriched with canonical `category_id`, clean merchant names, and meaningful descriptions before sync.
+- `CATEGORY_INSTRUCTIONS.md` updated to include Household Help (52), Kids Activities (53), Software & Tools (54) and new description quality rules.
+
 ## [2.2.0] - 2026-03-02
 ### Added
 - Delete Account feature: in-app button under More → Account with double-confirm prompt.

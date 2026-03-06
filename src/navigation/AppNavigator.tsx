@@ -49,6 +49,13 @@ const AppNavigator = () => {
         name="Expenses"
         component={ExpensesStackNavigator}
         options={{ headerShown: false }}
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            if (navigation.isFocused()) {
+              navigation.navigate('Expenses', { screen: 'ExpensesOverview' });
+            }
+          },
+        })}
       />
       <Tab.Screen name="Accounts" component={AccountsScreen} />
       <Tab.Screen

@@ -10,6 +10,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PieChart, BarChart } from 'react-native-gifted-charts';
 import { useTheme } from '../contexts/ThemeContext';
 import { formatCurrency, formatCompactCurrency } from '../utils/format';
@@ -36,6 +37,8 @@ const CATEGORY_ICONS: Record<string, string> = {
   'groceries': '🛒', 'Groceries': '🛒',
   'fuel': '⛽', 'Fuel': '⛽',
   'rent': '🏠', 'Rent': '🏠',
+  'home improvement': '🛠️', 'Home Improvement': '🛠️',
+  'home maintenance': '🛠️', 'Home Maintenance': '🛠️',
   'Insurance': '🛡️', 'EMI': '💳',
   'Investments': '📈', 'Transfers': '↔️',
   'Uncategorized': '📦',
@@ -110,6 +113,7 @@ const ExpensesScreen = () => {
   const [period, setPeriod] = useState<Period>('6m');
   const { colors, isDark } = useTheme();
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
 
   const fetchData = useCallback(async () => {
     try {
@@ -233,7 +237,8 @@ const ExpensesScreen = () => {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 8 }]}
+      contentInsetAdjustmentBehavior="automatic"
       refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchData} tintColor={colors.primary} />}
       showsVerticalScrollIndicator={false}
     >

@@ -1,9 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
+import { AppState } from 'react-native';
 import { DashboardData } from '../types/dashboard';
 import { Investments } from '../types/investments';
 import { BankAccount, Category } from '../types/transactions';
 import ApiService from '../services/api';
 import { useAuth } from './AuthContext';
+import { useSMSSync } from '../hooks/useSMSSync';
 
 interface DataContextType {
   dashboard: DashboardData | null;
@@ -23,6 +25,8 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const { runDailyAutoSyncIfNeeded } = useSMSSync({ enableRealtimeListener: true });
+  const autoSyncInProgressRef = useRef(false);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [investments, setInvestments] = useState<Investments | null>(null);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
@@ -96,17 +100,50 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     ]);
   }, [refreshDashboard, refreshInvestments, refreshAccounts, refreshCategories]);
 
+  const tryDailyAutoSync = useCallback(async (reason: 'startup' | 'foreground') => {
+    if (!user || autoSyncInProgressRef.current) {
+      return;
+    }
+
+    autoSyncInProgressRef.current = true;
+    try {
+      const result = await runDailyAutoSyncIfNeeded();
+
+      if (result.success && !result.didSkip && result.saved > 0) {
+        console.log(`[DataContext] Auto SMS sync (${reason}) saved ${result.saved} transactions. Refreshing data.`);
+        await refreshAll();
+      }
+    } catch (error) {
+      console.warn(`[DataContext] Auto SMS sync (${reason}) failed:`, error);
+    } finally {
+      autoSyncInProgressRef.current = false;
+    }
+  }, [refreshAll, runDailyAutoSyncIfNeeded, user]);
+
   // Load initial data only when user is authenticated
   useEffect(() => {
     if (user) {
       console.log('[DataContext] User authenticated, fetching data...');
       refreshAll();
+
+      // Daily fallback: when app opens and user is authenticated, run one silent auto-sync.
+      tryDailyAutoSync('startup');
+
+      const appStateSubscription = AppState.addEventListener('change', (state) => {
+        if (state === 'active') {
+          tryDailyAutoSync('foreground');
+        }
+      });
+
+      return () => {
+        appStateSubscription.remove();
+      };
     } else {
       console.log('[DataContext] No user, skipping data fetch');
     }
   // refreshAll is stable via useCallback — safe to include
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [tryDailyAutoSync, user]);
 
   return (
     <DataContext.Provider

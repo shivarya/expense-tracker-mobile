@@ -13,6 +13,7 @@ export type ExpensesStackParamList = {
     headerTitle?: string;
     startDate?: string;
     endDate?: string;
+    initialMonthKey?: 'current';
   } | undefined;
   CategoriesSpend: {
     period?: 'cm' | '1m' | '3m' | '6m' | '1y';

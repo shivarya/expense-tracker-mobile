@@ -328,6 +328,10 @@ class ApiService {
     return await this.api.post('/parse/sms', { messages });
   }
 
+  async parseSMSWebhook(message: { sender: string; body: string; date: string }) {
+    return await this.api.post('/parse/sms/webhook', message);
+  }
+
   async login() {
     const response = await this.api.post('/auth/login', {});
     if (response.data.success && response.data.data.token) {

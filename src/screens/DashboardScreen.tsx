@@ -110,6 +110,7 @@ const DashboardScreen = () => {
 
   const openCurrentMonthTransactions = () => {
     navigation.navigate('Expenses', {
+      initial: false,
       screen: 'Transactions',
       params: {
         headerTitle: 'Transactions',

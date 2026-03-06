@@ -15,7 +15,7 @@ type MoreNavProp = NativeStackNavigationProp<MoreStackParamList, 'MoreHome'>;
 const MoreScreen = () => {
   const navigation = useNavigation<MoreNavProp>();
   const { theme, setTheme, isDark, colors } = useTheme();
-  const { syncSMS, isSyncing, lastSyncTime, resetSyncHistory } = useSMSSync();
+  const { syncSMS, isSyncing, lastSyncTime, resetSyncHistory, lastAutoSyncResult, isRealtimeBridgeAvailable } = useSMSSync();
   const { refreshAll } = useData();
   const { logout } = useAuth();
   const [syncResult, setSyncResult] = useState<string | null>(null);
@@ -73,7 +73,7 @@ const MoreScreen = () => {
       const result = await syncSMS();
       
       if (result.success) {
-        const message = `SMS Sync Complete!\n\nFound: ${result.count} bank SMS\nParsed: ${result.parsed} transactions\nSaved: ${result.saved} new\nSkipped: ${result.skipped} duplicates`;
+        const message = `SMS Sync Complete!\n\nFound: ${result.count} bank SMS\nParsed: ${result.parsed} transactions\nSaved: ${result.saved} new (${result.savedDebitCount} debit, ${result.savedCreditCount} credit)\nSkipped: ${result.skipped} duplicates`;
         setSyncResult(message);
         Alert.alert('Success', message);
         
@@ -91,6 +91,11 @@ const MoreScreen = () => {
     if (!lastSyncTime) return 'Never';
     const date = new Date(lastSyncTime);
     return date.toLocaleString();
+  };
+
+  const formatLastAutoSync = () => {
+    if (!lastAutoSyncResult?.timestamp) return 'Never';
+    return new Date(lastAutoSyncResult.timestamp).toLocaleString();
   };
 
   return (
@@ -142,6 +147,20 @@ const MoreScreen = () => {
           <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
             Last synced: {formatLastSync()}
           </Text>
+          <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
+            Auto sync mode: Real-time + Daily fallback
+          </Text>
+          <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
+            Real-time listener: {isRealtimeBridgeAvailable ? 'Enabled' : 'Unavailable in this build'}
+          </Text>
+          <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
+            Last auto sync: {formatLastAutoSync()}
+          </Text>
+          {lastAutoSyncResult && (
+            <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
+              Last auto result: saved {lastAutoSyncResult.saved} ({lastAutoSyncResult.savedDebitCount} debit, {lastAutoSyncResult.savedCreditCount} credit)
+            </Text>
+          )}
           {syncResult && (
             <Text style={[styles.syncResult, { color: colors.text }]}>
               {syncResult}
