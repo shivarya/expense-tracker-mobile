@@ -4,6 +4,7 @@ import { DashboardData } from '../types/dashboard';
 import { Investments } from '../types/investments';
 import { BankAccount, Category } from '../types/transactions';
 import ApiService from '../services/api';
+import { requestWidgetSummaryRefresh } from '../services/widget';
 import { useAuth } from './AuthContext';
 import { useSMSSync } from '../hooks/useSMSSync';
 
@@ -42,6 +43,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const data = await ApiService.getDashboard();
       console.log('[DataContext] Dashboard loaded:', !!data);
       setDashboard(data);
+      void requestWidgetSummaryRefresh();
     } catch (err: any) {
       const msg = err.message || 'Failed to fetch dashboard';
       setError(msg);
@@ -57,6 +59,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setError(null);
       const data = await ApiService.getAllInvestments();
       setInvestments(data);
+      void requestWidgetSummaryRefresh();
     } catch (err: any) {
       setError(err.message || 'Failed to fetch investments');
       console.error('Investments error:', err);

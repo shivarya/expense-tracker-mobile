@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+### Added
+- Android home-screen widget infrastructure with size-aware small, medium, and large layouts for monthly spend, savings, portfolio, and top-category summaries.
+- Dedicated `/widget/summary` server endpoint plus app-to-widget snapshot sync so the widget can refresh from app state and conservative background fetches.
+- Widget deep links for Dashboard, Investments, and current-month Expenses, plus manual widget refresh support.
+
+### Changed
+- Refined widget monthly spend chart readability with clearer trend labels and explicit This/Last/Avg context.
+- Improved widget graph behavior to avoid future-month labels and suppress zero-value bars that can look like assumed data.
+
+### Google Play Notes (Draft)
+- New home-screen Expense Tracker widget with monthly Spent, Income, Top category, and Balance at a glance.
+- Added monthly spend chart in the widget with clearer trend context and quick comparison details.
+- Improved widget layout handling across different widget sizes for a cleaner and more stable look.
+- Better widget data accuracy in chart labels and month display.
+
 ## [2.5.0] - 2026-03-05
 ### Added
 - Automatic daily SMS sync trigger on app startup and app foreground resume.

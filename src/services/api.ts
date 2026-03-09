@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiResponse, DashboardData } from '../types/dashboard';
 import { Investments } from '../types/investments';
+import { WidgetSummary } from '../types/widget';
 import { Transaction, BankAccount, EMI, Category, TrustedContact } from '../types/transactions';
 
 class ApiService {
@@ -114,6 +115,18 @@ class ApiService {
       throw new Error(response.data.error || 'Failed to fetch dashboard');
     }
     return response.data.data;
+  }
+
+  async getWidgetSummary(): Promise<WidgetSummary> {
+    const response = await this.api.get<ApiResponse<WidgetSummary>>('/widget/summary');
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch widget summary');
+    }
+    return response.data.data;
+  }
+
+  getBaseURL(): string {
+    return this.baseURL;
   }
 
   // Investments

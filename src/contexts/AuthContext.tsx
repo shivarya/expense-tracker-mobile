@@ -1,6 +1,8 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { clearWidgetSession, syncWidgetSession } from '../services/widget';
+
 interface User {
   id: number;
   email: string;
@@ -39,10 +41,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (token && userData) {
         setUser(JSON.parse(userData));
+        await syncWidgetSession();
+      } else {
+        await clearWidgetSession();
       }
     } catch (error) {
       console.error('[AuthContext] checkAuth error:', error);
       // Silent fail - user will be logged out
+      await clearWidgetSession();
     } finally {
       setLoading(false);
     }
@@ -60,6 +66,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         await AsyncStorage.setItem('user_data', JSON.stringify(userData));
 
         setUser(userData);
+        await syncWidgetSession();
       } else {
         throw new Error(response.error || 'Login failed');
       }
@@ -73,6 +80,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       await AsyncStorage.removeItem('auth_token');
       await AsyncStorage.removeItem('user_data');
+      await clearWidgetSession();
       setUser(null);
     } catch (error) {
       console.error('[AuthContext] Logout error:', error);
