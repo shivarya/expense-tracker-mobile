@@ -3,18 +3,21 @@ node_modules/
 .pnp
 .pnp.js
 
-# Expo
+# Expo generated
 .expo/
 .expo-shared/
 dist/
 web-build/
 
-# Native builds
-android/
-ios/
+# Build artifacts
 *.apk
 *.aab
 *.ipa
+android/.gradle/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/.cxx/
 
 # Environment
 .env
@@ -59,4 +62,3 @@ GoogleService-Info.plist
 # Temporary
 *.tmp
 .cache
-bugreport-sdk_gphone64_x86_64-BE4B.251210.005-2026-03-14-20-51-47.zip

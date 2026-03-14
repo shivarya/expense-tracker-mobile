@@ -37,6 +37,33 @@ export interface Transaction {
   category_icon?: string;
   bank?: string;
   account_type?: string;
+  account_name?: string;
+  payment_method?: string;
+}
+
+export type TransactionGroupRuleType =
+  | 'category_id'
+  | 'account_id'
+  | 'account_type'
+  | 'payment_method_keyword'
+  | 'merchant_keyword'
+  | 'transaction_type';
+
+export interface TransactionGroupRule {
+  id?: number;
+  rule_type: TransactionGroupRuleType;
+  rule_value: string;
+}
+
+export interface TransactionGroup {
+  id: number;
+  name: string;
+  description?: string | null;
+  icon?: string;
+  color?: string;
+  is_preset?: boolean;
+  rule_count?: number;
+  rules: TransactionGroupRule[];
 }
 
 export interface TrustedContact {

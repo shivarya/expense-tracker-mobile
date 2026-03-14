@@ -10,6 +10,8 @@ export type ExpensesStackParamList = {
   Transactions: {
     categoryId?: number;
     categoryName?: string;
+    groupId?: number;
+    groupName?: string;
     headerTitle?: string;
     startDate?: string;
     endDate?: string;
@@ -17,6 +19,7 @@ export type ExpensesStackParamList = {
   } | undefined;
   CategoriesSpend: {
     period?: 'cm' | '1m' | '3m' | '6m' | '1y';
+    groupId?: number;
   } | undefined;
   MasterCategories: undefined;
 };

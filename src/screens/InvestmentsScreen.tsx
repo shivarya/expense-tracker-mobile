@@ -23,6 +23,22 @@ const InvestmentsScreen = () => {
   const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState<'stocks' | 'mf' | 'fd' | 'longterm'>('stocks');
 
+  const labelTextStyle = { color: colors.textSecondary };
+  const valueTextStyle = { color: colors.text };
+
+  const getDateLabelForFDChart = (dateString: string) => {
+    const dt = new Date(dateString);
+    if (Number.isNaN(dt.getTime())) return '--';
+    return dt.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+  };
+
+  const formatYAxisLabel = (label: string) => {
+    const value = Number(label);
+    if (Number.isNaN(value)) return label;
+    if (Number.isInteger(value)) return value.toLocaleString('en-IN');
+    return value.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  };
+
   // Compute tab summaries
   const tabSummary = useMemo(() => {
     if (!investments) return null;
@@ -185,19 +201,19 @@ const InvestmentsScreen = () => {
                 </View>
               </View>
             </View>
-            <Text style={[styles.folioText, { color: colors.placeholder }]}>Folio: {fund.folio_number}</Text>
+            <Text style={[styles.folioText, { color: colors.textSecondary }]}>Folio: {fund.folio_number}</Text>
             <View style={styles.investmentRow}>
               <View style={styles.investmentCol}>
-                <Text style={styles.investmentLabel}>Units</Text>
-                <Text style={styles.investmentValue}>{units.toFixed(3)}</Text>
+                <Text style={[styles.investmentLabel, labelTextStyle]}>Units</Text>
+                <Text style={[styles.investmentValue, valueTextStyle]}>{units.toFixed(3)}</Text>
               </View>
               <View style={styles.investmentCol}>
-                <Text style={styles.investmentLabel}>NAV</Text>
-                <Text style={styles.investmentValue}>₹{nav.toFixed(2)}</Text>
+                <Text style={[styles.investmentLabel, labelTextStyle]}>NAV</Text>
+                <Text style={[styles.investmentValue, valueTextStyle]}>₹{nav.toFixed(2)}</Text>
               </View>
               <View style={styles.investmentCol}>
-                <Text style={styles.investmentLabel}>Value</Text>
-                <Text style={styles.investmentValueBold}>
+                <Text style={[styles.investmentLabel, labelTextStyle]}>Value</Text>
+                <Text style={[styles.investmentValueBold, valueTextStyle]}>
                   {formatCurrency(currentVal)}
                 </Text>
               </View>
@@ -223,20 +239,20 @@ const InvestmentsScreen = () => {
           </View>
           <View style={styles.investmentRow}>
             <View style={styles.investmentCol}>
-              <Text style={styles.investmentLabel}>Principal</Text>
-              <Text style={styles.investmentValue}>
+              <Text style={[styles.investmentLabel, labelTextStyle]}>Principal</Text>
+              <Text style={[styles.investmentValue, valueTextStyle]}>
                 {formatCurrency(Number(fd.principal_amount))}
               </Text>
             </View>
             <View style={styles.investmentCol}>
-              <Text style={styles.investmentLabel}>Maturity</Text>
-              <Text style={styles.investmentValueBold}>
+              <Text style={[styles.investmentLabel, labelTextStyle]}>Maturity</Text>
+              <Text style={[styles.investmentValueBold, valueTextStyle]}>
                 {formatCurrency(Number(fd.maturity_value))}
               </Text>
             </View>
             <View style={styles.investmentCol}>
-              <Text style={styles.investmentLabel}>Rate</Text>
-              <Text style={styles.investmentValue}>{fd.interest_rate}%</Text>
+              <Text style={[styles.investmentLabel, labelTextStyle]}>Rate</Text>
+              <Text style={[styles.investmentValue, valueTextStyle]}>{fd.interest_rate}%</Text>
             </View>
           </View>
           <Text style={[styles.maturityDate, { color: colors.warning }]}>
@@ -314,15 +330,15 @@ const InvestmentsScreen = () => {
                   {/* Main values */}
                   <View style={styles.investmentRow}>
                     <View style={styles.investmentCol}>
-                      <Text style={styles.investmentLabel}>Invested</Text>
-                      <Text style={styles.investmentValue}>{formatCompactCurrency(invested)}</Text>
+                      <Text style={[styles.investmentLabel, labelTextStyle]}>Invested</Text>
+                      <Text style={[styles.investmentValue, valueTextStyle]}>{formatCompactCurrency(invested)}</Text>
                     </View>
                     <View style={styles.investmentCol}>
-                      <Text style={styles.investmentLabel}>Current Value</Text>
-                      <Text style={styles.investmentValueBold}>{formatCompactCurrency(current)}</Text>
+                      <Text style={[styles.investmentLabel, labelTextStyle]}>Current Value</Text>
+                      <Text style={[styles.investmentValueBold, valueTextStyle]}>{formatCompactCurrency(current)}</Text>
                     </View>
                     <View style={styles.investmentCol}>
-                      <Text style={styles.investmentLabel}>Gain/Loss</Text>
+                      <Text style={[styles.investmentLabel, labelTextStyle]}>Gain/Loss</Text>
                       <Text style={[styles.investmentGain, { color: gainLoss >= 0 ? colors.success : colors.error }]}>
                         {gainLoss >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
                       </Text>
@@ -334,13 +350,13 @@ const InvestmentsScreen = () => {
                     <View style={[styles.breakdownRow, { borderTopColor: colors.divider }]}>
                       {employerContrib > 0 && (
                         <View style={styles.breakdownItem}>
-                          <Text style={styles.breakdownLabel}>Employer</Text>
-                          <Text style={styles.breakdownValue}>{formatCompactCurrency(employerContrib)}</Text>
+                          <Text style={[styles.breakdownLabel, labelTextStyle]}>Employer</Text>
+                          <Text style={[styles.breakdownValue, valueTextStyle]}>{formatCompactCurrency(employerContrib)}</Text>
                         </View>
                       )}
                       {interestEarned > 0 && (
                         <View style={styles.breakdownItem}>
-                          <Text style={styles.breakdownLabel}>Interest</Text>
+                          <Text style={[styles.breakdownLabel, labelTextStyle]}>Interest</Text>
                           <Text style={[styles.breakdownValue, { color: colors.success }]}>
                             {formatCompactCurrency(interestEarned)}
                           </Text>
@@ -395,11 +411,42 @@ const InvestmentsScreen = () => {
   const getLTAllocationData = () => {
     if (activeTab !== 'longterm') return [];
     const funds = investments?.long_term_funds || [];
+
+    const typeCounts = funds.reduce<Record<string, number>>((acc, fund) => {
+      const type = (fund.fund_type || 'other').toUpperCase();
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {});
+
     return funds.map((f, i) => ({
       value: Number(f.current_value || 0),
       text: formatCompactCurrency(Number(f.current_value || 0)),
       color: COLORS[i % COLORS.length],
-      label: f.fund_type?.toUpperCase(),
+      label: (() => {
+        const type = (f.fund_type || 'other').toUpperCase();
+        const accountName = (f.account_name || '').trim();
+        const hasDuplicateType = (typeCounts[type] || 0) > 1;
+
+        if (hasDuplicateType) {
+          if (accountName && accountName.toUpperCase() !== type) {
+            return accountName.length > 20 ? `${accountName.slice(0, 20)}...` : accountName;
+          }
+
+          const accountId = f.account_number || f.uan_number || f.pran_number || '';
+          if (accountId) {
+            const last4 = accountId.slice(-4);
+            return `${type} ${last4 ? `•${last4}` : ''}`.trim();
+          }
+
+          return `${type} ${i + 1}`;
+        }
+
+        if (accountName && accountName.toUpperCase() !== type) {
+          return accountName.length > 20 ? `${accountName.slice(0, 20)}...` : accountName;
+        }
+
+        return type;
+      })(),
     }));
   };
 
@@ -427,11 +474,19 @@ const InvestmentsScreen = () => {
     return fds
       .sort((a, b) => new Date(a.maturity_date).getTime() - new Date(b.maturity_date).getTime())
       .slice(0, 5)
-      .map((fd, index) => ({
-        value: Number(fd.maturity_value),
-        label: new Date(fd.maturity_date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
-        frontColor: COLORS[index % COLORS.length],
-      }));
+      .map((fd, index) => {
+        const maturityValue = Number(fd.maturity_value) || 0;
+        return {
+          value: maturityValue,
+          label: getDateLabelForFDChart(fd.maturity_date),
+          frontColor: COLORS[index % COLORS.length],
+          topLabelComponent: () => (
+            <Text style={[styles.barTopLabel, { color: colors.textSecondary }]}>
+              {formatCompactCurrency(maturityValue)}
+            </Text>
+          ),
+        };
+      });
   };
 
   const renderChart = () => {
@@ -458,6 +513,7 @@ const InvestmentsScreen = () => {
               yAxisThickness={0}
               noOfSections={4}
               maxValue={Math.max(...data.map(d => d.value)) * 1.2 || 10}
+              formatYLabel={(label: string) => formatYAxisLabel(label)}
             />
           </ScrollView>
         </View>
@@ -508,6 +564,7 @@ const InvestmentsScreen = () => {
       return (
         <View style={[styles.chartCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.chartTitle, { color: colors.textSecondary }]}>UPCOMING MATURITIES</Text>
+          <Text style={[styles.chartHelperText, { color: colors.textSecondary }]}>Bars show maturity amount, X-axis shows month/year.</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <BarChart
               data={data}
@@ -524,6 +581,7 @@ const InvestmentsScreen = () => {
               yAxisThickness={0}
               noOfSections={4}
               maxValue={Math.max(...data.map(d => d.value)) * 1.2 || 10}
+              formatYLabel={(label: string) => formatYAxisLabel(label)}
             />
           </ScrollView>
         </View>
@@ -557,7 +615,7 @@ const InvestmentsScreen = () => {
               {data.map((d, i) => (
                 <View key={i} style={styles.legendItem}>
                   <View style={[styles.legendDot, { backgroundColor: d.color }]} />
-                  <Text style={[styles.legendText, { color: colors.textSecondary }]}>{d.label}</Text>
+                  <Text style={[styles.legendText, { color: colors.textSecondary }]} numberOfLines={1}>{d.label}</Text>
                   <Text style={[styles.legendValue, { color: colors.text }]}>{d.text}</Text>
                 </View>
               ))}
@@ -838,6 +896,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1.2,
     marginBottom: 16,
+  },
+  chartHelperText: {
+    fontSize: 10,
+    marginTop: -10,
+    marginBottom: 10,
+  },
+  barTopLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   pieContainer: {
     flexDirection: 'row',

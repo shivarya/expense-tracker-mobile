@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +16,7 @@ import { PieChart, BarChart } from 'react-native-gifted-charts';
 import { useTheme } from '../contexts/ThemeContext';
 import { formatCurrency, formatCompactCurrency } from '../utils/format';
 import ApiService from '../services/api';
+import { TransactionGroup } from '../types/transactions';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -111,24 +113,69 @@ const ExpensesScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ExpenseData | null>(null);
   const [period, setPeriod] = useState<Period>('6m');
+  const [groups, setGroups] = useState<TransactionGroup[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>(undefined);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [draftPeriod, setDraftPeriod] = useState<Period>('6m');
+  const [draftGroupId, setDraftGroupId] = useState<number | undefined>(undefined);
   const { colors, isDark } = useTheme();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+
+  const selectedGroup = groups.find((group) => group.id === selectedGroupId);
+
+  const fetchGroups = useCallback(async () => {
+    try {
+      let groupData = await ApiService.getTransactionGroups();
+
+      if (groupData.length === 0) {
+        await ApiService.createGroupPresets();
+        groupData = await ApiService.getTransactionGroups();
+      }
+
+      setGroups(groupData);
+    } catch {
+      // Keep screen functional even if group endpoint is unavailable.
+      setGroups([]);
+    }
+  }, []);
+
+  const openGroupsManager = () => {
+    navigation.navigate('More', { screen: 'Groups' });
+  };
+
+  const openFilterModal = () => {
+    setDraftPeriod(period);
+    setDraftGroupId(selectedGroupId);
+    setFilterModalVisible(true);
+  };
+
+  const applyFilterModal = () => {
+    setPeriod(draftPeriod);
+    setSelectedGroupId(draftGroupId);
+    setFilterModalVisible(false);
+  };
+
+  const resetActiveFilters = () => {
+    setPeriod('6m');
+    setSelectedGroupId(undefined);
+  };
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await ApiService.getExpenseSummary(period);
+      const res = await ApiService.getExpenseSummary(period, selectedGroupId);
       setData(res);
     } catch (err: any) {
       setError(err.message || 'Failed to load expense data');
     } finally {
       setLoading(false);
     }
-  }, [period]);
+  }, [period, selectedGroupId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchGroups(); }, [fetchGroups]);
 
   // --- Loading ---
   if (loading && !data) {
@@ -220,6 +267,8 @@ const ExpensesScreen = () => {
     navigation.navigate('Transactions', {
       categoryId: category?.category_id,
       categoryName: category?.category,
+      groupId: selectedGroupId,
+      groupName: selectedGroup?.name,
       headerTitle: category?.category || 'Transactions',
       startDate: getStartDateForPeriod(period),
       endDate: toISODate(new Date()),
@@ -227,7 +276,7 @@ const ExpensesScreen = () => {
   };
 
   const openCategoriesSpend = () => {
-    navigation.navigate('CategoriesSpend', { period });
+    navigation.navigate('CategoriesSpend', { period, groupId: selectedGroupId });
   };
 
   const openMasterCategories = () => {
@@ -235,6 +284,7 @@ const ExpensesScreen = () => {
   };
 
   return (
+    <>
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 8 }]}
@@ -242,29 +292,40 @@ const ExpensesScreen = () => {
       refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchData} tintColor={colors.primary} />}
       showsVerticalScrollIndicator={false}
     >
-      {/* ========= Period Selector ========= */}
-      <View style={styles.periodRow}>
-        {(['cm', '1m', '3m', '6m', '1y'] as Period[]).map((p) => (
-          <TouchableOpacity
-            key={p}
-            style={[
-              styles.periodPill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-              period === p && { backgroundColor: colors.primary, borderColor: colors.primary },
-            ]}
-            onPress={() => setPeriod(p)}
-            activeOpacity={0.7}
-          >
-            <Text style={[
-              styles.periodPillText,
-              { color: colors.textSecondary },
-              period === p && { color: isDark ? '#000' : '#fff' },
-            ]}>
-              {periodLabels[p]}
-            </Text>
+      <View style={[styles.filterSummaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+        <View style={styles.filterSummaryHeader}>
+          <Text style={[styles.filterSummaryTitle, { color: colors.text }]}>Expense Filters</Text>
+          <TouchableOpacity onPress={openFilterModal} activeOpacity={0.75}>
+            <Text style={[styles.filterSummaryAction, { color: colors.primary }]}>Edit</Text>
           </TouchableOpacity>
-        ))}
+        </View>
+        <View style={styles.filterSummaryBadgesRow}>
+          <View style={[styles.filterSummaryBadge, { borderColor: colors.border, backgroundColor: colors.background }]}>
+            <Text style={[styles.filterSummaryBadgeText, { color: colors.textSecondary }]}>Month: {periodLabels[period]}</Text>
+          </View>
+          <View style={[styles.filterSummaryBadge, { borderColor: colors.border, backgroundColor: colors.background }]}>
+            <Text style={[styles.filterSummaryBadgeText, { color: colors.textSecondary }]}>Group: {selectedGroup?.name || 'All groups'}</Text>
+          </View>
+        </View>
+        <Text style={[styles.filterHintText, { color: colors.textSecondary }]}>Month and group are combined using AND.</Text>
+        <TouchableOpacity style={styles.filterResetBtn} onPress={resetActiveFilters} activeOpacity={0.75}>
+          <Text style={[styles.filterResetText, { color: colors.textSecondary }]}>Reset to default</Text>
+        </TouchableOpacity>
       </View>
+
+      {groups.length === 0 && (
+        <View style={[styles.groupEmptyCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
+          <Text style={[styles.groupEmptyTitle, { color: colors.text }]}>Create Preset Groups</Text>
+          <Text style={[styles.groupEmptySub, { color: colors.textSecondary }]}>Add Credit Cards, Home, and Travel filters instantly.</Text>
+          <TouchableOpacity
+            style={[styles.groupEmptyBtn, { backgroundColor: colors.primary }]}
+            onPress={fetchGroups}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.groupEmptyBtnText, { color: isDark ? '#000' : '#fff' }]}>Create Presets</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* ========= Hero Spend Card ========= */}
       <View style={[styles.heroCard, { backgroundColor: isDark ? '#1A1A1A' : '#111' }]}>
@@ -549,6 +610,103 @@ const ExpensesScreen = () => {
 
       <View style={styles.bottomPad} />
     </ScrollView>
+
+    <Modal
+      visible={filterModalVisible}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setFilterModalVisible(false)}
+    >
+      <View style={styles.modalBackdrop}>
+        <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Expense Filters</Text>
+            <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+              <Text style={[styles.modalClose, { color: colors.textSecondary }]}>Close</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Month and group are applied together with AND.</Text>
+
+          <Text style={[styles.modalSectionTitle, { color: colors.textSecondary }]}>Month</Text>
+          <View style={styles.modalWrapRow}>
+            {(['cm', '1m', '3m', '6m', '1y'] as Period[]).map((p) => (
+              <TouchableOpacity
+                key={p}
+                style={[
+                  styles.modalChip,
+                  { backgroundColor: colors.background, borderColor: colors.border },
+                  draftPeriod === p && { backgroundColor: colors.primary, borderColor: colors.primary },
+                ]}
+                onPress={() => setDraftPeriod(p)}
+                activeOpacity={0.75}
+              >
+                <Text style={[
+                  styles.modalChipText,
+                  { color: draftPeriod === p ? (isDark ? '#000' : '#fff') : colors.textSecondary },
+                ]}>
+                  {periodLabels[p]}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.modalGroupHeader}>
+            <Text style={[styles.modalSectionTitle, { color: colors.textSecondary }]}>Group</Text>
+            <TouchableOpacity onPress={openGroupsManager}>
+              <Text style={[styles.modalManageText, { color: colors.primary }]}>Manage</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.modalGroupScroll} contentContainerStyle={styles.modalWrapRow}>
+            <TouchableOpacity
+              style={[
+                styles.modalChip,
+                { backgroundColor: colors.background, borderColor: colors.border },
+                draftGroupId === undefined && { backgroundColor: colors.primary, borderColor: colors.primary },
+              ]}
+              onPress={() => setDraftGroupId(undefined)}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.modalChipText, { color: draftGroupId === undefined ? (isDark ? '#000' : '#fff') : colors.textSecondary }]}>All groups</Text>
+            </TouchableOpacity>
+
+            {groups.map((group) => (
+              <TouchableOpacity
+                key={group.id}
+                style={[
+                  styles.modalChip,
+                  { backgroundColor: colors.background, borderColor: colors.border },
+                  draftGroupId === group.id && { backgroundColor: group.color || colors.primary, borderColor: group.color || colors.primary },
+                ]}
+                onPress={() => setDraftGroupId(group.id)}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.modalChipText, { color: draftGroupId === group.id ? (isDark ? '#000' : '#fff') : colors.textSecondary }]}>{group.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <View style={styles.modalActionsRow}>
+            <TouchableOpacity
+              style={[styles.modalSecondaryBtn, { borderColor: colors.border }]}
+              onPress={() => {
+                setDraftPeriod('6m');
+                setDraftGroupId(undefined);
+              }}
+            >
+              <Text style={[styles.modalSecondaryBtnText, { color: colors.textSecondary }]}>Reset</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalPrimaryBtn, { backgroundColor: colors.primary }]}
+              onPress={applyFilterModal}
+            >
+              <Text style={[styles.modalPrimaryBtnText, { color: isDark ? '#000' : '#fff' }]}>Apply Filters</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 };
 
@@ -576,26 +734,117 @@ const styles = StyleSheet.create({
   },
   retryBtnText: { fontWeight: '700', fontSize: 15, letterSpacing: 0.3 },
 
-  // Period pills
-  periodRow: {
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  periodPill: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 8,
-    borderRadius: 20,
+  filterSummaryCard: {
+    marginHorizontal: 16,
+    marginBottom: 10,
     borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
-  periodPillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    textAlign: 'center',
+  filterSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
+  filterSummaryTitle: { fontSize: 14, fontWeight: '700' },
+  filterSummaryAction: { fontSize: 13, fontWeight: '700' },
+  filterSummaryBadgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterSummaryBadge: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  filterSummaryBadgeText: { fontSize: 12, fontWeight: '600' },
+  filterHintText: { fontSize: 11, marginTop: 8 },
+  filterResetBtn: { marginTop: 8, alignSelf: 'flex-start' },
+  filterResetText: { fontSize: 12, fontWeight: '600' },
+  groupEmptyCard: {
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+  },
+  groupEmptyTitle: { fontSize: 14, fontWeight: '700' },
+  groupEmptySub: { fontSize: 12, marginTop: 3, marginBottom: 8 },
+  groupEmptyBtn: {
+    borderRadius: 10,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  groupEmptyBtnText: { fontSize: 12, fontWeight: '700' },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 22,
+    maxHeight: '78%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalTitle: { fontSize: 16, fontWeight: '700' },
+  modalClose: { fontSize: 13, fontWeight: '600' },
+  modalHint: { fontSize: 11, marginTop: 6, marginBottom: 10 },
+  modalSectionTitle: { fontSize: 12, fontWeight: '700', marginBottom: 8 },
+  modalWrapRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  modalChip: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  modalChipText: { fontSize: 12, fontWeight: '600' },
+  modalGroupHeader: {
+    marginTop: 12,
+    marginBottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalManageText: { fontSize: 12, fontWeight: '700' },
+  modalGroupScroll: { maxHeight: 180 },
+  modalActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 14,
+  },
+  modalSecondaryBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  modalSecondaryBtnText: { fontSize: 13, fontWeight: '700' },
+  modalPrimaryBtn: {
+    flex: 2,
+    borderRadius: 12,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  modalPrimaryBtnText: { fontSize: 13, fontWeight: '700' },
 
   // Hero card
   heroCard: {

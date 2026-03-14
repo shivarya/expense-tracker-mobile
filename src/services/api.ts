@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiResponse, DashboardData } from '../types/dashboard';
 import { Investments } from '../types/investments';
 import { WidgetSummary } from '../types/widget';
-import { Transaction, BankAccount, EMI, Category, TrustedContact } from '../types/transactions';
+import { Transaction, BankAccount, EMI, Category, TrustedContact, TransactionGroup } from '../types/transactions';
 
 class ApiService {
   private api: AxiosInstance;
@@ -164,12 +164,67 @@ class ApiService {
     end_date?: string;
     account_id?: number;
     category_id?: number;
+    group_id?: number;
     type?: string;
     limit?: number;
   }): Promise<{ transactions: Transaction[]; summary: any }> {
     const response = await this.api.get<ApiResponse<any>>('/transactions', { params });
     if (!response.data.success || !response.data.data) {
       throw new Error(response.data.error || 'Failed to fetch transactions');
+    }
+    return response.data.data;
+  }
+
+  // Transaction Groups
+  async getTransactionGroups(): Promise<TransactionGroup[]> {
+    const response = await this.api.get<ApiResponse<TransactionGroup[]>>('/groups');
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch groups');
+    }
+    return response.data.data;
+  }
+
+  async createTransactionGroup(payload: {
+    name: string;
+    description?: string;
+    icon?: string;
+    color?: string;
+    rules: Array<{ rule_type: string; rule_value: string }>;
+    is_preset?: boolean;
+  }): Promise<{ id: number }> {
+    const response = await this.api.post<ApiResponse<{ id: number }>>('/groups', payload);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to create group');
+    }
+    return response.data.data;
+  }
+
+  async updateTransactionGroup(groupId: number, payload: {
+    name?: string;
+    description?: string;
+    icon?: string;
+    color?: string;
+    rules?: Array<{ rule_type: string; rule_value: string }>;
+  }): Promise<{ id: number }> {
+    const response = await this.api.put<ApiResponse<{ id: number }>>(`/groups/${groupId}`, payload);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to update group');
+    }
+    return response.data.data;
+  }
+
+  async deleteTransactionGroup(groupId: number): Promise<boolean> {
+    const response = await this.api.delete<ApiResponse<null>>(`/groups/${groupId}`);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to delete group');
+    }
+    return true;
+  }
+
+  async createGroupPresets(): Promise<{ created: number; skipped: number }> {
+    const response = await this.api.post<ApiResponse<{ created: number; skipped: number }>>('/groups/presets', {});
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to create preset groups');
     }
     return response.data.data;
   }
@@ -299,9 +354,12 @@ class ApiService {
   }
 
   // Expense Analytics
-  async getExpenseSummary(period: 'cm' | '1m' | '3m' | '6m' | '1y' = '6m') {
+  async getExpenseSummary(period: 'cm' | '1m' | '3m' | '6m' | '1y' = '6m', groupId?: number) {
     const response = await this.api.get(`/api/expenses/summary`, {
-      params: { period }
+      params: {
+        period,
+        group_id: groupId,
+      }
     });
 
     // Debug/log the exact response in development to diagnose unexpected shapes

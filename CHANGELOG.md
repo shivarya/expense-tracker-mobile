@@ -3,6 +3,27 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+
+## [2.5.5] - 2026-03-14
+### Added
+- Transaction Groups management with preset groups for Credit Cards, Home, and Travel.
+- Group-based filtering in Expenses and Transactions so users can focus analytics and lists by selected group.
+
+### Changed
+- Expenses filters redesigned into a compact summary + edit sheet for cleaner, less cluttered controls.
+- Transactions filters redesigned into a compact summary + edit sheet with explicit Apply behavior.
+- Month and Group filters now apply together using AND when fetching data.
+
+### Fixed
+- First-run group experience now auto-seeds default preset groups, avoiding an empty "All groups only" filter state.
+
+### Google Play Notes
+- New preset transaction groups: Credit Cards, Home, and Travel.
+- You can now filter Expenses analytics and Transactions by group for faster insights.
+- Filters are cleaner and easier to use with a new compact filter panel.
+- Month and Group filters now work together for more precise results.
+
+## [2.5.4] - 2026-03-14
 ### Added
 - Android home-screen widget infrastructure with size-aware small, medium, and large layouts for monthly spend, savings, portfolio, and top-category summaries.
 - Dedicated `/widget/summary` server endpoint plus app-to-widget snapshot sync so the widget can refresh from app state and conservative background fetches.
@@ -11,12 +32,17 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Refined widget monthly spend chart readability with clearer trend labels and explicit This/Last/Avg context.
 - Improved widget graph behavior to avoid future-month labels and suppress zero-value bars that can look like assumed data.
+- Updated EAS build packaging config so native Android widget files are included in production cloud builds.
+
+### Fixed
+- Home-screen widget visibility issue on physical devices caused by production builds missing native widget files.
 
 ### Google Play Notes (Draft)
 - New home-screen Expense Tracker widget with monthly Spent, Income, Top category, and Balance at a glance.
 - Added monthly spend chart in the widget with clearer trend context and quick comparison details.
 - Improved widget layout handling across different widget sizes for a cleaner and more stable look.
 - Better widget data accuracy in chart labels and month display.
+- Fixed widget visibility on real devices in production release builds.
 
 ## [2.5.0] - 2026-03-05
 ### Added

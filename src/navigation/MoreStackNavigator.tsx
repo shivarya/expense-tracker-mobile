@@ -3,11 +3,13 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import MoreScreen from '../screens/MoreScreen';
 import TrustedContactsScreen from '../screens/TrustedContactsScreen';
 import MasterCategoriesScreen from '../screens/MasterCategoriesScreen';
+import GroupsScreen from '../screens/GroupsScreen';
 
 export type MoreStackParamList = {
   MoreHome: undefined;
   TrustedContacts: undefined;
   Categories: undefined;
+  Groups: undefined;
 };
 
 const Stack = createNativeStackNavigator<MoreStackParamList>();
@@ -29,6 +31,11 @@ const MoreStackNavigator = () => {
         name="Categories"
         component={MasterCategoriesScreen}
         options={{ title: 'Master Categories' }}
+      />
+      <Stack.Screen
+        name="Groups"
+        component={GroupsScreen}
+        options={{ title: 'Transaction Groups' }}
       />
     </Stack.Navigator>
   );

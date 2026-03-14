@@ -61,6 +61,7 @@ const MoreScreen = () => {
   const menuItems: { id: string; icon: string; label: string; screen: keyof MoreStackParamList }[] = [
     { id: 'contacts', icon: 'people-outline', label: 'Trusted Contacts', screen: 'TrustedContacts' },
     { id: 'categories', icon: 'pricetags-outline', label: 'Categories', screen: 'Categories' },
+    { id: 'groups', icon: 'layers-outline', label: 'Transaction Groups', screen: 'Groups' },
   ];
 
   const handleThemeChange = (value: 'light' | 'dark' | 'auto') => {

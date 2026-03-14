@@ -12,6 +12,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import ApiService from '../services/api';
 import { formatCurrency } from '../utils/format';
+import { TransactionGroup } from '../types/transactions';
 
 type Period = 'cm' | '1m' | '3m' | '6m' | '1y';
 
@@ -43,8 +44,11 @@ const CategoriesSpendScreen = () => {
   const navigation = useNavigation<any>();
   const route = useRoute();
   const initialPeriod = ((route.params as any)?.period || '6m') as Period;
+  const initialGroupId = (route.params as any)?.groupId as number | undefined;
 
   const [period, setPeriod] = useState<Period>(initialPeriod);
+  const [groups, setGroups] = useState<TransactionGroup[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>(initialGroupId);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<ExpenseData | null>(null);
@@ -54,17 +58,30 @@ const CategoriesSpendScreen = () => {
   const fetchData = useCallback(async (showLoader = true) => {
     try {
       if (showLoader) setLoading(true);
-      const res = await ApiService.getExpenseSummary(period);
+      const res = await ApiService.getExpenseSummary(period, selectedGroupId);
       setData(res);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [period]);
+  }, [period, selectedGroupId]);
+
+  const fetchGroups = useCallback(async () => {
+    try {
+      const groupData = await ApiService.getTransactionGroups();
+      setGroups(groupData);
+    } catch {
+      setGroups([]);
+    }
+  }, []);
 
   useEffect(() => {
     fetchData(true);
   }, [fetchData]);
+
+  useEffect(() => {
+    fetchGroups();
+  }, [fetchGroups]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -75,6 +92,7 @@ const CategoriesSpendScreen = () => {
     navigation.navigate('Transactions', {
       categoryId: category.category_id,
       categoryName: category.category,
+      groupId: selectedGroupId,
       headerTitle: category.category,
     });
   };
@@ -112,6 +130,32 @@ const CategoriesSpendScreen = () => {
             </TouchableOpacity>
           ))}
         </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.groupRow}>
+          <TouchableOpacity
+            style={[
+              styles.groupPill,
+              { borderColor: colors.border, backgroundColor: colors.card },
+              selectedGroupId === undefined && { borderColor: colors.primary, backgroundColor: colors.primary },
+            ]}
+            onPress={() => setSelectedGroupId(undefined)}
+          >
+            <Text style={[styles.groupPillText, { color: selectedGroupId === undefined ? (isDark ? '#000' : '#fff') : colors.textSecondary }]}>All groups</Text>
+          </TouchableOpacity>
+          {groups.map((group) => (
+            <TouchableOpacity
+              key={group.id}
+              style={[
+                styles.groupPill,
+                { borderColor: colors.border, backgroundColor: colors.card },
+                selectedGroupId === group.id && { borderColor: colors.primary, backgroundColor: colors.primary },
+              ]}
+              onPress={() => setSelectedGroupId(group.id)}
+            >
+              <Text style={[styles.groupPillText, { color: selectedGroupId === group.id ? (isDark ? '#000' : '#fff') : colors.textSecondary }]}>{group.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
         <View style={styles.actionsWrap}>
           <TouchableOpacity
@@ -171,6 +215,19 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   periodText: { fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  groupRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  groupPill: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  groupPillText: { fontSize: 12, fontWeight: '600' },
   actionsWrap: {
     paddingHorizontal: 16,
     paddingBottom: 8,
