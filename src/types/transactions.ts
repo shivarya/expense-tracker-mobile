@@ -31,7 +31,7 @@ export interface Transaction {
   description?: string;
   transaction_date: string;
   reference_number?: string;
-  source: 'sms' | 'email' | 'web_scrape' | 'manual';
+  source: 'sms' | 'email' | 'web_scrape' | 'manual' | 'sms_webhook' | 'statement_pdf';
   category_name?: string;
   category_color?: string;
   category_icon?: string;
@@ -90,4 +90,30 @@ export interface EMI {
   start_date?: string;
   end_date?: string;
   status: 'active' | 'paid' | 'foreclosed';
+}
+
+export interface StatementPasswordPayload {
+  bank: string;
+  account_type: 'savings' | 'current' | 'credit_card';
+  card_last_four?: string;
+  password: string;
+}
+
+export interface StatementPasswordResponse {
+  bank: string;
+  account_type: 'savings' | 'current' | 'credit_card';
+  card_last_four?: string;
+  stored: boolean;
+}
+
+export interface StatementUploadResult {
+  upload_id: number;
+  duplicate_upload: boolean;
+  extracted_transactions: number;
+  saved_transactions: number;
+  skipped_high_confidence: number;
+  flagged_possible_duplicates: number;
+  ai_checked_transactions: number;
+  duplicate_fallback_used: number;
+  errors?: string[];
 }

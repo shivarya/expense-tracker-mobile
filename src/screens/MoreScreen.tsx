@@ -15,11 +15,15 @@ type MoreNavProp = NativeStackNavigationProp<MoreStackParamList, 'MoreHome'>;
 const MoreScreen = () => {
   const navigation = useNavigation<MoreNavProp>();
   const { theme, setTheme, isDark, colors } = useTheme();
-  const { syncSMS, isSyncing, lastSyncTime, resetSyncHistory, lastAutoSyncResult, isRealtimeBridgeAvailable } = useSMSSync();
+  const { syncSMS, isSyncing, lastSyncTime, lastAutoSyncResult, isRealtimeBridgeAvailable } = useSMSSync();
   const { refreshAll } = useData();
   const { logout } = useAuth();
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  const buildSyncMessage = (title: string, result: Awaited<ReturnType<typeof syncSMS>>) => {
+    return `${title}\n\nFound: ${result.count} bank SMS\nParsed: ${result.parsed} transactions\nSaved: ${result.saved} new (${result.savedDebitCount} debit, ${result.savedCreditCount} credit)\nSkipped (high confidence): ${result.skippedHighConfidence}\nPossible duplicates to review: ${result.flaggedPossibleDuplicates}`;
+  };
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -74,7 +78,7 @@ const MoreScreen = () => {
       const result = await syncSMS();
       
       if (result.success) {
-        const message = `SMS Sync Complete!\n\nFound: ${result.count} bank SMS\nParsed: ${result.parsed} transactions\nSaved: ${result.saved} new (${result.savedDebitCount} debit, ${result.savedCreditCount} credit)\nSkipped: ${result.skipped} duplicates`;
+        const message = buildSyncMessage('SMS Sync Complete!', result);
         setSyncResult(message);
         Alert.alert('Success', message);
         
@@ -86,6 +90,37 @@ const MoreScreen = () => {
       Alert.alert('Error', errorMsg);
       setSyncResult(`Error: ${errorMsg}`);
     }
+  };
+
+  const handleResyncLast30Days = () => {
+    Alert.alert(
+      'Re-sync Last 30 Days',
+      'This will scan your bank SMS from the last 30 days again and compare against already-synced transactions. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Re-sync Now',
+          style: 'default',
+          onPress: async () => {
+            try {
+              setSyncResult(null);
+              const result = await syncSMS({ mode: 'manual', forceLookbackDays: 30 });
+
+              if (result.success) {
+                const message = buildSyncMessage('Last 30 Days Re-sync Complete!', result);
+                setSyncResult(message);
+                Alert.alert('Success', message);
+                await refreshAll();
+              }
+            } catch (error: any) {
+              const errorMsg = error.message || 'Failed to re-sync last 30 days';
+              Alert.alert('Error', errorMsg);
+              setSyncResult(`Error: ${errorMsg}`);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const formatLastSync = () => {
@@ -121,27 +156,20 @@ const MoreScreen = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.resetButton, { backgroundColor: colors.border }]}
-          onPress={() => {
-            Alert.alert(
-              'Reset SMS Sync',
-              'This will allow you to re-sync all SMS messages from the last 30 days. Continue?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Reset',
-                  style: 'destructive',
-                  onPress: async () => {
-                    await resetSyncHistory();
-                    Alert.alert('Success', 'SMS sync history cleared. You can now sync all messages again.');
-                  }
-                }
-              ]
-            );
-          }}
+          style={[styles.syncButton, { backgroundColor: colors.info }]}
+          onPress={() => navigation.navigate('StatementSync')}
         >
-          <Ionicons name="refresh-outline" size={20} color={colors.text} />
-          <Text style={[styles.resetButtonText, { color: colors.text }]}>Reset Sync History</Text>
+          <Ionicons name="document-attach-outline" size={24} color={colors.background} />
+          <Text style={[styles.syncButtonText, { color: colors.background }]}>Upload Statement PDF</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.resetButton, { backgroundColor: colors.border }]}
+          onPress={handleResyncLast30Days}
+          disabled={isSyncing}
+        >
+          <Ionicons name="sync-outline" size={20} color={colors.text} />
+          <Text style={[styles.resetButtonText, { color: colors.text }]}>Re-sync Last 30 Days Now</Text>
         </TouchableOpacity>
 
         <View style={styles.syncInfo}>
@@ -156,6 +184,9 @@ const MoreScreen = () => {
           </Text>
           <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
             Last auto sync: {formatLastAutoSync()}
+          </Text>
+          <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
+            Use "Re-sync Last 30 Days Now" to verify any possibly missed transactions.
           </Text>
           {lastAutoSyncResult && (
             <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>

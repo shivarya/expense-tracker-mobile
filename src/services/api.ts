@@ -5,7 +5,26 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiResponse, DashboardData } from '../types/dashboard';
 import { Investments } from '../types/investments';
 import { WidgetSummary } from '../types/widget';
-import { Transaction, BankAccount, EMI, Category, TrustedContact, TransactionGroup } from '../types/transactions';
+import {
+  Transaction,
+  BankAccount,
+  EMI,
+  Category,
+  TrustedContact,
+  TransactionGroup,
+  StatementPasswordPayload,
+  StatementPasswordResponse,
+  StatementUploadResult,
+} from '../types/transactions';
+
+interface StatementUploadPayload {
+  bank: string;
+  account_type: 'savings' | 'current' | 'credit_card';
+  card_last_four?: string;
+  fileUri: string;
+  fileName: string;
+  mimeType?: string;
+}
 
 class ApiService {
   private api: AxiosInstance;
@@ -401,6 +420,54 @@ class ApiService {
 
   async parseSMSWebhook(message: { sender: string; body: string; date: string }) {
     return await this.api.post('/parse/sms/webhook', message);
+  }
+
+  async saveStatementPassword(payload: StatementPasswordPayload): Promise<StatementPasswordResponse> {
+    const response = await this.api.post<ApiResponse<StatementPasswordResponse>>('/statements/password', payload);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to save statement password');
+    }
+    return response.data.data;
+  }
+
+  async deleteStatementPassword(payload: {
+    bank: string;
+    account_type: 'savings' | 'current' | 'credit_card';
+    card_last_four?: string;
+  }): Promise<boolean> {
+    const response = await this.api.delete<ApiResponse<{ deleted: boolean }>>('/statements/password', { data: payload });
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to delete statement password');
+    }
+    return !!response.data.data?.deleted;
+  }
+
+  async uploadStatementPdf(payload: StatementUploadPayload): Promise<StatementUploadResult> {
+    const formData = new FormData();
+    formData.append('bank', payload.bank);
+    formData.append('account_type', payload.account_type);
+    if (payload.card_last_four) {
+      formData.append('card_last_four', payload.card_last_four);
+    }
+
+    formData.append('statement_pdf', {
+      uri: payload.fileUri,
+      name: payload.fileName,
+      type: payload.mimeType || 'application/pdf',
+    } as any);
+
+    const response = await this.api.post<ApiResponse<StatementUploadResult>>('/statements/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 120000,
+    });
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to upload statement PDF');
+    }
+
+    return response.data.data;
   }
 
   async login() {

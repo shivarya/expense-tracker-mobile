@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useData } from '../contexts/DataContext';
@@ -74,6 +75,48 @@ const getRangeDates = (key: DateRangeKey): { startDate?: string; endDate?: strin
   return { startDate: formatDate(start), endDate: formatDate(now) };
 };
 
+const parseTxnDate = (value: string): Date | null => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatTxnDateLocal = (value: string): string => {
+  const date = parseTxnDate(value);
+  if (!date) return value;
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+};
+
+const formatTxnTimeLocal = (value: string): string => {
+  const date = parseTxnDate(value);
+  if (!date) return '--';
+  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+};
+
+const formatTxnDateTimeLocal = (value: string): string => {
+  const date = parseTxnDate(value);
+  if (!date) return value;
+  return date.toLocaleString();
+};
+
+const formatTxnSource = (source?: string): string => {
+  switch (source) {
+    case 'sms':
+      return 'SMS';
+    case 'sms_webhook':
+      return 'SMS Realtime';
+    case 'statement_pdf':
+      return 'Statement PDF';
+    case 'web_scrape':
+      return 'Web Scrape';
+    case 'email':
+      return 'Email';
+    case 'manual':
+      return 'Manual';
+    default:
+      return source || 'Unknown';
+  }
+};
+
 const TransactionsScreen = () => {
   const { colors, isDark } = useTheme();
   const { categories, refreshCategories } = useData();
@@ -105,6 +148,8 @@ const TransactionsScreen = () => {
   const [filterCategoryPickerVisible, setFilterCategoryPickerVisible] = useState(false);
   const [editCategoryPickerVisible, setEditCategoryPickerVisible] = useState(false);
   const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
+  const [detailTxn, setDetailTxn] = useState<Transaction | null>(null);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
 
   const selectedCategory = categories.find((item) => item.id === selectedCategoryId);
   const selectedGroup = groups.find((item) => item.id === selectedGroupId);
@@ -235,6 +280,16 @@ const TransactionsScreen = () => {
     );
   };
 
+  const openTxnDetails = (txn: Transaction) => {
+    setDetailTxn(txn);
+    setDetailModalVisible(true);
+  };
+
+  const closeTxnDetails = () => {
+    setDetailModalVisible(false);
+    setDetailTxn(null);
+  };
+
   const onSelectTxnCategory = async (categoryId: number) => {
     if (!selectedTxn) return;
     setEditCategoryPickerVisible(false);
@@ -359,7 +414,7 @@ const TransactionsScreen = () => {
                 <View style={styles.txnInfo}>
                   <Text style={[styles.txnMerchant, { color: colors.text }]} numberOfLines={1}>{txn.merchant || txn.description || 'Transaction'}</Text>
                   <View style={styles.metaRow}>
-                    <Text style={[styles.txnDate, { color: colors.textSecondary }]}>{new Date(txn.transaction_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</Text>
+                    <Text style={[styles.txnDate, { color: colors.textSecondary }]}>{formatTxnDateLocal(txn.transaction_date)} • {formatTxnTimeLocal(txn.transaction_date)}</Text>
                     <TouchableOpacity
                       onPress={() => onEditCategoryTap(txn)}
                       style={[styles.badge, { backgroundColor: (txn.category_color || colors.textSecondary) + '20' }]}
@@ -368,9 +423,18 @@ const TransactionsScreen = () => {
                     </TouchableOpacity>
                   </View>
                 </View>
-                <Text style={[styles.txnAmount, { color: txn.transaction_type === 'credit' ? colors.success : colors.error }]}>
-                  {txn.transaction_type === 'credit' ? '+' : '-'}{formatCurrency(Number(txn.amount), 0)}
-                </Text>
+                <View style={styles.txnRight}>
+                  <Text style={[styles.txnAmount, { color: txn.transaction_type === 'credit' ? colors.success : colors.error }]}> 
+                    {txn.transaction_type === 'credit' ? '+' : '-'}{formatCurrency(Number(txn.amount), 0)}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => openTxnDetails(txn)}
+                    style={[styles.eyeButton, { borderColor: colors.border, backgroundColor: colors.background }]}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="eye-outline" size={15} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
               </TouchableOpacity>
               {index < transactions.length - 1 && <View style={[styles.divider, { backgroundColor: colors.divider }]} />}
             </View>
@@ -381,6 +445,58 @@ const TransactionsScreen = () => {
           )}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={detailModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeTxnDetails}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Transaction Details</Text>
+              <TouchableOpacity onPress={closeTxnDetails}>
+                <Text style={[styles.modalClose, { color: colors.textSecondary }]}>Close</Text>
+              </TouchableOpacity>
+            </View>
+
+            {detailTxn ? (
+              <View style={styles.detailWrap}>
+                <Text style={[styles.detailTitle, { color: colors.text }]}>
+                  {detailTxn.merchant || detailTxn.description || 'Transaction'}
+                </Text>
+                <Text style={[styles.detailAmount, { color: detailTxn.transaction_type === 'credit' ? colors.success : colors.error }]}>
+                  {detailTxn.transaction_type === 'credit' ? '+' : '-'}{formatCurrency(Number(detailTxn.amount), 0)}
+                </Text>
+
+                <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Type</Text>
+                  <Text style={[styles.detailValue, { color: colors.text }]}>{detailTxn.transaction_type}</Text>
+                </View>
+                <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Date & time</Text>
+                  <Text style={[styles.detailValue, { color: colors.text }]}>{formatTxnDateTimeLocal(detailTxn.transaction_date)}</Text>
+                </View>
+                <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Category</Text>
+                  <Text style={[styles.detailValue, { color: detailTxn.category_color || colors.text }]}>{detailTxn.category_name || 'Uncategorized'}</Text>
+                </View>
+                <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Account</Text>
+                  <Text style={[styles.detailValue, { color: colors.text }]} numberOfLines={2}>
+                    {detailTxn.account_name || [detailTxn.bank, detailTxn.account_type].filter(Boolean).join(' • ') || 'Unknown account'}
+                  </Text>
+                </View>
+                <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Source</Text>
+                  <Text style={[styles.detailValue, { color: colors.text }]}>{formatTxnSource(detailTxn.source)}</Text>
+                </View>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={filterModalVisible}
@@ -711,6 +827,7 @@ const styles = StyleSheet.create({
   txnMerchant: { fontSize: 14, fontWeight: '700' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   txnDate: { fontSize: 12 },
+  txnRight: { alignItems: 'flex-end', gap: 7 },
   badge: {
     paddingHorizontal: 7,
     paddingVertical: 2,
@@ -719,6 +836,27 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontSize: 10, fontWeight: '700' },
   txnAmount: { fontSize: 14, fontWeight: '700' },
+  eyeButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailWrap: { marginTop: 12 },
+  detailTitle: { fontSize: 16, fontWeight: '700' },
+  detailAmount: { fontSize: 18, fontWeight: '700', marginTop: 4, marginBottom: 12 },
+  detailRow: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  detailLabel: { fontSize: 12, fontWeight: '600' },
+  detailValue: { flex: 1, textAlign: 'right', fontSize: 13, fontWeight: '600' },
   divider: { height: 1, marginLeft: 16 },
   emptyText: { textAlign: 'center', fontSize: 13, paddingVertical: 24 },
 });

@@ -28,6 +28,10 @@ interface SyncResult {
   parsed: number;
   saved: number;
   skipped: number;
+  skippedHighConfidence: number;
+  flaggedPossibleDuplicates: number;
+  aiCheckedTransactions: number;
+  duplicateFallbackUsed: number;
   savedDebitCount: number;
   savedCreditCount: number;
   savedDebitAmount: number;
@@ -43,6 +47,13 @@ interface AutoSyncSnapshot extends SyncResult {
 
 interface UseSMSSyncOptions {
   enableRealtimeListener?: boolean;
+}
+
+interface SyncSMSOptions {
+  mode?: SyncMode;
+  notify?: boolean;
+  silent?: boolean;
+  forceLookbackDays?: number;
 }
 
 interface SmsBridgeNativeModule {
@@ -274,10 +285,12 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
     setLastAutoSyncResult(snapshot);
   }, []);
 
-  const syncSMS = useCallback(async (opts?: { mode?: SyncMode; notify?: boolean; silent?: boolean }): Promise<SyncResult> => {
+  const syncSMS = useCallback(async (opts?: SyncSMSOptions): Promise<SyncResult> => {
     const mode: SyncMode = opts?.mode ?? 'manual';
     const shouldNotify = opts?.notify ?? mode !== 'manual';
     const silent = opts?.silent ?? mode !== 'manual';
+    const forceLookbackDays = Number(opts?.forceLookbackDays);
+    const shouldForceLookback = Number.isFinite(forceLookbackDays) && forceLookbackDays > 0;
 
     if (syncInFlightRef.current) {
       return {
@@ -287,6 +300,10 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
         parsed: 0,
         saved: 0,
         skipped: 0,
+        skippedHighConfidence: 0,
+        flaggedPossibleDuplicates: 0,
+        aiCheckedTransactions: 0,
+        duplicateFallbackUsed: 0,
         savedDebitCount: 0,
         savedCreditCount: 0,
         savedDebitAmount: 0,
@@ -314,6 +331,10 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
           parsed: 0,
           saved: 0,
           skipped: 0,
+          skippedHighConfidence: 0,
+          flaggedPossibleDuplicates: 0,
+          aiCheckedTransactions: 0,
+          duplicateFallbackUsed: 0,
           savedDebitCount: 0,
           savedCreditCount: 0,
           savedDebitAmount: 0,
@@ -331,7 +352,9 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
       // where state may not yet reflect the persisted timestamp
       const storedTimestamp = await AsyncStorage.getItem(LAST_SYNC_KEY);
       const lastSync = storedTimestamp ? parseInt(storedTimestamp, 10) : null;
-      const minDate = lastSync || Date.now() - (30 * 24 * 60 * 60 * 1000);
+      const minDate = shouldForceLookback
+        ? Date.now() - (forceLookbackDays * 24 * 60 * 60 * 1000)
+        : (lastSync || Date.now() - (30 * 24 * 60 * 60 * 1000));
       const SmsAndroid = getSmsAndroidModule();
 
       if (!SmsAndroid?.list) {
@@ -342,7 +365,7 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
         const filter = {
           box: 'inbox',
           minDate: minDate,
-          maxCount: 100
+          maxCount: shouldForceLookback ? 300 : 100
         };
 
         SmsAndroid.list(
@@ -378,6 +401,10 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
           parsed: 0,
           saved: 0,
           skipped: 0,
+          skippedHighConfidence: 0,
+          flaggedPossibleDuplicates: 0,
+          aiCheckedTransactions: 0,
+          duplicateFallbackUsed: 0,
           savedDebitCount: 0,
           savedCreditCount: 0,
           savedDebitAmount: 0,
@@ -400,6 +427,7 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
       // Send to server for parsing
       const response = await api.parseSMS(formattedMessages);
       const payload = response?.data?.data || {};
+      const skippedHighConfidence = toNumber(payload.skipped_high_confidence ?? payload.skipped_duplicates);
 
       const result: SyncResult = {
         success: true,
@@ -407,7 +435,11 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
         count: bankSMS.length,
         parsed: toNumber(payload.parsed_transactions),
         saved: toNumber(payload.saved_transactions),
-        skipped: toNumber(payload.skipped_duplicates),
+        skipped: skippedHighConfidence,
+        skippedHighConfidence,
+        flaggedPossibleDuplicates: toNumber(payload.flagged_possible_duplicates),
+        aiCheckedTransactions: toNumber(payload.ai_checked_transactions),
+        duplicateFallbackUsed: toNumber(payload.duplicate_fallback_used),
         savedDebitCount: toNumber(payload.saved_debit_count),
         savedCreditCount: toNumber(payload.saved_credit_count),
         savedDebitAmount: toNumber(payload.saved_debit_amount),
@@ -440,6 +472,10 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
         parsed: 0,
         saved: 0,
         skipped: 0,
+        skippedHighConfidence: 0,
+        flaggedPossibleDuplicates: 0,
+        aiCheckedTransactions: 0,
+        duplicateFallbackUsed: 0,
         savedDebitCount: 0,
         savedCreditCount: 0,
         savedDebitAmount: 0,
@@ -481,6 +517,10 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
         parsed: 0,
         saved: 0,
         skipped: 0,
+        skippedHighConfidence: 0,
+        flaggedPossibleDuplicates: 0,
+        aiCheckedTransactions: 0,
+        duplicateFallbackUsed: 0,
         savedDebitCount: 0,
         savedCreditCount: 0,
         savedDebitAmount: 0,

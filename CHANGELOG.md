@@ -2,7 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [Unreleased] - 2026-03-16
+### Added
+- Manual "Re-sync Last 30 Days Now" action in More screen to force a 30-day re-sync.
+- SMS sync hook: support `forceLookbackDays` and return richer duplicate-validation counters to the UI (high-confidence skips, flagged possible duplicates, AI-checked transactions, duplicate-fallback usage).
+### Changed
+- Transactions list now displays local time on each row and includes an eye icon to open a detailed transaction sheet.
+### Fixed
+- Fixed an issue where transactions sometimes displayed 12:00 AM due to AI-parsed date-only values — the server now preserves SMS timestamps and updates duplicate transaction timestamps during re-sync when a more precise time is available.
+### Google Play Notes
+- Transaction times now show the correct local time (fixes 12:00 AM issue).
+- One-tap "Re-sync Last 30 Days" available from More screen to manually fetch recent SMS transactions.
+- Improved duplicate detection feedback and sync reporting for more reliable imports.
+- Miscellaneous bug fixes and stability improvements.
 
 ## [2.5.5] - 2026-03-14
 ### Added
