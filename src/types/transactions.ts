@@ -39,6 +39,58 @@ export interface Transaction {
   account_type?: string;
   account_name?: string;
   payment_method?: string;
+  has_split?: boolean;
+  split_count?: number;
+  split_total?: number;
+  refund_allocation_count?: number;
+  refund_allocated_amount?: number;
+  refund_targets_count?: number;
+  refund_allocated_out?: number;
+}
+
+export interface TransactionSplitLine {
+  id?: number;
+  category_id: number;
+  amount: number;
+  display_order?: number;
+  notes?: string | null;
+  category_name?: string;
+  category_color?: string;
+  category_icon?: string;
+}
+
+export interface TransactionSplitsResponse {
+  transaction_id: number;
+  parent_amount: number;
+  is_split: boolean;
+  split_count: number;
+  split_total: number;
+  splits: TransactionSplitLine[];
+}
+
+export interface RefundAllocation {
+  id?: number;
+  refund_transaction_id?: number;
+  expense_transaction_id: number;
+  amount: number;
+  notes?: string | null;
+  expense_merchant?: string | null;
+  expense_description?: string | null;
+  expense_transaction_date?: string;
+  expense_category_name?: string | null;
+  refund_merchant?: string | null;
+  refund_description?: string | null;
+  refund_transaction_date?: string;
+}
+
+export interface RefundAllocationsResponse {
+  transaction_id: number;
+  transaction_type: 'debit' | 'credit' | 'transfer';
+  mode: 'from_refund' | 'to_expense';
+  refund_amount?: number;
+  total_allocated: number;
+  remaining_refundable?: number | null;
+  allocations: RefundAllocation[];
 }
 
 export type TransactionGroupRuleType =

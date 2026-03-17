@@ -205,6 +205,8 @@ const ExpensesScreen = () => {
   const rawMonthlyTrends: MonthlyExpense[] = data?.monthly_trends ?? [];
   const monthlyTrends = fillMissingMonths(rawMonthlyTrends, (data as any)?.start_date ?? '');
   const totalExpenses = Number(data?.total_expenses || 0);
+  const grossExpenses = Number((data as any)?.gross_expenses || totalExpenses);
+  const refundOffsets = Number((data as any)?.refund_offsets || 0);
   const totalIncome = Number(data?.total_income || 0);
   const netSavings = Number(data?.net_savings || 0);
 
@@ -333,6 +335,11 @@ const ExpensesScreen = () => {
           <View style={{ flex: 1 }}>
             <Text style={styles.heroLabel}>TOTAL SPENT</Text>
             <Text style={styles.heroAmount}>{formatCurrency(totalExpenses, 0)}</Text>
+            {refundOffsets > 0 ? (
+              <Text style={styles.heroRefundHint}>
+                {`Net of ${formatCompactCurrency(refundOffsets)} refunds (gross ${formatCompactCurrency(grossExpenses)})`}
+              </Text>
+            ) : null}
             {monthChange !== 0 && (
               <View style={styles.heroChangeRow}>
                 <Text style={{ color: monthChange > 0 ? '#FF4757' : '#00C48C', fontSize: 12, fontWeight: '700' }}>
@@ -382,7 +389,7 @@ const ExpensesScreen = () => {
         <View style={styles.heroStatsRow}>
           <View style={styles.heroStat}>
             <View style={[styles.heroStatDot, { backgroundColor: '#FF4757' }]} />
-            <Text style={styles.heroStatLabel}>Spent</Text>
+            <Text style={styles.heroStatLabel}>Net Spent</Text>
             <Text style={styles.heroStatValue}>{formatCompactCurrency(totalExpenses)}</Text>
           </View>
           <View style={styles.heroStat}>
@@ -871,6 +878,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -1,
+  },
+  heroRefundHint: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.55)',
+    marginTop: 4,
+    fontWeight: '500',
   },
   heroChangeRow: {
     flexDirection: 'row',

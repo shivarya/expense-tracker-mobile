@@ -7,6 +7,9 @@ import { Investments } from '../types/investments';
 import { WidgetSummary } from '../types/widget';
 import {
   Transaction,
+  TransactionSplitLine,
+  TransactionSplitsResponse,
+  RefundAllocationsResponse,
   BankAccount,
   EMI,
   Category,
@@ -274,6 +277,50 @@ class ApiService {
     return response.data.data;
   }
 
+  async getTransactionSplits(transactionId: number): Promise<TransactionSplitsResponse> {
+    const response = await this.api.get<ApiResponse<TransactionSplitsResponse>>(`/transactions/${transactionId}/splits`);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch transaction splits');
+    }
+    return response.data.data;
+  }
+
+  async updateTransactionSplits(
+    transactionId: number,
+    splits: Array<Pick<TransactionSplitLine, 'category_id' | 'amount' | 'notes'>>,
+  ): Promise<TransactionSplitsResponse> {
+    const response = await this.api.put<ApiResponse<TransactionSplitsResponse>>(`/transactions/${transactionId}/splits`, {
+      splits,
+    });
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to save transaction splits');
+    }
+    return response.data.data;
+  }
+
+  async getRefundAllocations(transactionId: number): Promise<RefundAllocationsResponse> {
+    const response = await this.api.get<ApiResponse<RefundAllocationsResponse>>(`/transactions/${transactionId}/refund-allocations`);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch refund allocations');
+    }
+    return response.data.data;
+  }
+
+  async updateRefundAllocations(
+    transactionId: number,
+    allocations: Array<{ expense_transaction_id: number; amount: number; notes?: string }>,
+  ): Promise<RefundAllocationsResponse> {
+    const response = await this.api.put<ApiResponse<RefundAllocationsResponse>>(`/transactions/${transactionId}/refund-allocations`, {
+      allocations,
+    });
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to save refund allocations');
+    }
+    return response.data.data;
+  }
+
   // Bank Accounts
   async getAccounts(): Promise<BankAccount[]> {
     const response = await this.api.get<ApiResponse<BankAccount[]>>('/accounts');
@@ -372,6 +419,22 @@ class ApiService {
     return response.data.data;
   }
 
+  async getSyncJobStatus(jobId: number) {
+    const response = await this.api.get<ApiResponse<any>>(`/sync/status/${jobId}`);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch sync job status');
+    }
+    return response.data.data;
+  }
+
+  async getLatestSyncJob() {
+    const response = await this.api.get<ApiResponse<any>>('/sync/latest');
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch latest sync job');
+    }
+    return response.data.data;
+  }
+
   // Expense Analytics
   async getExpenseSummary(period: 'cm' | '1m' | '3m' | '6m' | '1y' = '6m', groupId?: number) {
     const response = await this.api.get(`/api/expenses/summary`, {
@@ -414,8 +477,22 @@ class ApiService {
   }
 
   // SMS Sync
-  async parseSMS(messages: Array<{ sender: string; body: string; date: string }>) {
-    return await this.api.post('/parse/sms', { messages });
+  async parseSMS(
+    messages: Array<{ sender: string; body: string; date: string }>,
+    options?: { async?: boolean; mode?: 'manual' | 'auto_daily' | 'auto_realtime'; forceLookbackDays?: number }
+  ) {
+    const payload: Record<string, any> = { messages };
+    if (options?.async !== undefined) {
+      payload.async = options.async;
+    }
+    if (options?.mode) {
+      payload.mode = options.mode;
+    }
+    if (options?.forceLookbackDays !== undefined) {
+      payload.force_lookback_days = options.forceLookbackDays;
+    }
+
+    return await this.api.post('/parse/sms', payload);
   }
 
   async parseSMSWebhook(message: { sender: string; body: string; date: string }) {

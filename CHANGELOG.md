@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 2026-03-16
+## [2.5.8] - 2026-03-17
 ### Added
 - Manual "Re-sync Last 30 Days Now" action in More screen to force a 30-day re-sync.
 - SMS sync hook: support `forceLookbackDays` and return richer duplicate-validation counters to the UI (high-confidence skips, flagged possible duplicates, AI-checked transactions, duplicate-fallback usage).

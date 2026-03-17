@@ -107,6 +107,13 @@ const MoreScreen = () => {
               const result = await syncSMS({ mode: 'manual', forceLookbackDays: 30 });
 
               if (result.success) {
+                if (result.asyncStarted) {
+                  const message = `Last 30 Days re-sync started in background.\n\nJob ID: ${result.jobId}\nYou can continue using the app. A notification will appear when sync finishes.`;
+                  setSyncResult(message);
+                  Alert.alert('Sync Started', message);
+                  return;
+                }
+
                 const message = buildSyncMessage('Last 30 Days Re-sync Complete!', result);
                 setSyncResult(message);
                 Alert.alert('Success', message);

@@ -9,12 +9,18 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useData } from '../contexts/DataContext';
-import { Category, Transaction, TransactionGroup } from '../types/transactions';
+import {
+  Category,
+  Transaction,
+  TransactionGroup,
+  RefundAllocation,
+} from '../types/transactions';
 import ApiService from '../services/api';
 import { formatCurrency } from '../utils/format';
 import CategoryPickerModal from '../components/CategoryPickerModal';
@@ -37,6 +43,12 @@ interface MonthOption {
   label: string;
   startDate: string;
   endDate: string;
+}
+
+interface SplitDraftLine {
+  category_id: number;
+  amountText: string;
+  notes?: string;
 }
 
 const formatDate = (date: Date) => date.toISOString().split('T')[0];
@@ -117,6 +129,16 @@ const formatTxnSource = (source?: string): string => {
   }
 };
 
+const formatTxnDisplayName = (txn: Transaction): string => {
+  return txn.merchant || txn.description || `Txn #${txn.id}`;
+};
+
+const parseAmountInput = (value: string): number => {
+  const parsed = Number(value.replace(/[^\d.]/g, ''));
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  return Math.round(parsed * 100) / 100;
+};
+
 const TransactionsScreen = () => {
   const { colors, isDark } = useTheme();
   const { categories, refreshCategories } = useData();
@@ -151,8 +173,22 @@ const TransactionsScreen = () => {
   const [detailTxn, setDetailTxn] = useState<Transaction | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
 
+  const [splitModalVisible, setSplitModalVisible] = useState(false);
+  const [splitSaving, setSplitSaving] = useState(false);
+  const [splitCategoryPickerVisible, setSplitCategoryPickerVisible] = useState(false);
+  const [activeSplitIndex, setActiveSplitIndex] = useState<number | null>(null);
+  const [splitDrafts, setSplitDrafts] = useState<SplitDraftLine[]>([]);
+
+  const [refundModalVisible, setRefundModalVisible] = useState(false);
+  const [refundSaving, setRefundSaving] = useState(false);
+  const [refundCandidates, setRefundCandidates] = useState<Transaction[]>([]);
+  const [refundAllocations, setRefundAllocations] = useState<RefundAllocation[]>([]);
+  const [selectedRefundExpenseId, setSelectedRefundExpenseId] = useState<number | null>(null);
+  const [refundAmountText, setRefundAmountText] = useState('');
+
   const selectedCategory = categories.find((item) => item.id === selectedCategoryId);
   const selectedGroup = groups.find((item) => item.id === selectedGroupId);
+  const selectedRefundExpense = refundCandidates.find((item) => item.id === selectedRefundExpenseId) || null;
 
   const fetchGroups = useCallback(async () => {
     try {
@@ -254,6 +290,10 @@ const TransactionsScreen = () => {
   }, [fetchTransactions]);
 
   const onEditCategoryTap = (txn: Transaction) => {
+    if (txn.has_split) {
+      Alert.alert('Split Transaction', 'This transaction is split across multiple categories. Use Manage Split in transaction details.');
+      return;
+    }
     setSelectedTxn(txn);
     setEditCategoryPickerVisible(true);
   };
@@ -311,6 +351,228 @@ const TransactionsScreen = () => {
       Alert.alert('Error', error?.message || 'Failed to update category');
     } finally {
       setSelectedTxn(null);
+    }
+  };
+
+  const openSplitEditor = async (txn: Transaction) => {
+    if (txn.transaction_type !== 'debit') {
+      Alert.alert('Not Supported', 'Only debit transactions can be split.');
+      return;
+    }
+
+    try {
+      const res = await ApiService.getTransactionSplits(txn.id);
+      const drafts: SplitDraftLine[] = res.splits.length > 0
+        ? res.splits.map((line) => ({
+            category_id: line.category_id,
+            amountText: String(line.amount),
+            notes: line.notes || undefined,
+          }))
+        : [{ category_id: txn.category_id, amountText: String(Number(txn.amount || 0)) }];
+
+      setSplitDrafts(drafts);
+      setDetailTxn(txn);
+      setDetailModalVisible(false);
+      setSplitModalVisible(true);
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to load splits');
+    }
+  };
+
+  const addSplitDraftLine = () => {
+    const fallbackCategoryId = detailTxn?.category_id || categories[0]?.id;
+    if (!fallbackCategoryId) {
+      Alert.alert('No Categories', 'Create a category first before splitting transactions.');
+      return;
+    }
+    setSplitDrafts((prev) => [...prev, { category_id: fallbackCategoryId, amountText: '' }]);
+  };
+
+  const removeSplitDraftLine = (index: number) => {
+    setSplitDrafts((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const updateSplitDraftLine = (index: number, patch: Partial<SplitDraftLine>) => {
+    setSplitDrafts((prev) => prev.map((line, idx) => (idx === index ? { ...line, ...patch } : line)));
+  };
+
+  const closeSplitModal = () => {
+    setSplitModalVisible(false);
+    setSplitDrafts([]);
+    setActiveSplitIndex(null);
+  };
+
+  const saveSplitDrafts = async () => {
+    if (!detailTxn) return;
+
+    if (splitDrafts.length === 0) {
+      Alert.alert('Validation', 'Add at least one split line.');
+      return;
+    }
+
+    const payload: Array<{ category_id: number; amount: number; notes?: string }> = [];
+    let total = 0;
+
+    for (const line of splitDrafts) {
+      if (!line.category_id) {
+        Alert.alert('Validation', 'Each split line needs a category.');
+        return;
+      }
+
+      const amount = parseAmountInput(line.amountText || '');
+      if (amount <= 0) {
+        Alert.alert('Validation', 'Each split line needs a positive amount.');
+        return;
+      }
+
+      payload.push({
+        category_id: line.category_id,
+        amount,
+        notes: line.notes,
+      });
+      total += amount;
+    }
+
+    const parentAmount = Math.round(Number(detailTxn.amount || 0) * 100) / 100;
+    const totalRounded = Math.round(total * 100) / 100;
+    if (Math.abs(totalRounded - parentAmount) > 0.01) {
+      Alert.alert('Validation', `Split total ${formatCurrency(totalRounded, 2)} must equal parent amount ${formatCurrency(parentAmount, 2)}.`);
+      return;
+    }
+
+    try {
+      setSplitSaving(true);
+      const res = await ApiService.updateTransactionSplits(detailTxn.id, payload);
+      setTransactions((prev) => prev.map((txn) => (
+        txn.id === detailTxn.id
+          ? {
+              ...txn,
+              has_split: res.is_split,
+              split_count: res.split_count,
+              split_total: res.split_total,
+            }
+          : txn
+      )));
+      closeSplitModal();
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to save split lines');
+    } finally {
+      setSplitSaving(false);
+    }
+  };
+
+  const openRefundAllocator = async (txn: Transaction) => {
+    if (txn.transaction_type !== 'credit') {
+      Alert.alert('Not Supported', 'Refund allocation is only available for credit transactions.');
+      return;
+    }
+
+    try {
+      const [allocationRes, debitRes] = await Promise.all([
+        ApiService.getRefundAllocations(txn.id),
+        ApiService.getTransactions({
+          type: 'debit',
+          start_date: getRangeDates('90d').startDate,
+          end_date: formatDate(new Date()),
+          limit: 100,
+        }),
+      ]);
+
+      const candidates = (debitRes.transactions || []).filter((item) => item.id !== txn.id);
+      setRefundCandidates(candidates);
+      setRefundAllocations(allocationRes.allocations || []);
+
+      const firstExisting = allocationRes.allocations?.[0];
+      if (firstExisting) {
+        setSelectedRefundExpenseId(firstExisting.expense_transaction_id);
+        setRefundAmountText(String(firstExisting.amount));
+      } else {
+        setSelectedRefundExpenseId(candidates[0]?.id ?? null);
+        setRefundAmountText('');
+      }
+
+      setDetailTxn(txn);
+      setDetailModalVisible(false);
+      setRefundModalVisible(true);
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to load refund allocation data');
+    }
+  };
+
+  const closeRefundModal = () => {
+    setRefundModalVisible(false);
+    setRefundCandidates([]);
+    setRefundAllocations([]);
+    setSelectedRefundExpenseId(null);
+    setRefundAmountText('');
+  };
+
+  const saveRefundAllocation = async () => {
+    if (!detailTxn) return;
+    if (selectedRefundExpenseId == null) {
+      Alert.alert('Validation', 'Choose a target expense transaction.');
+      return;
+    }
+
+    const amount = parseAmountInput(refundAmountText);
+    if (amount <= 0) {
+      Alert.alert('Validation', 'Enter a valid refund allocation amount.');
+      return;
+    }
+
+    const refundAmount = Number(detailTxn.amount || 0);
+    if (amount - refundAmount > 0.01) {
+      Alert.alert('Validation', `Allocation cannot exceed refund amount ${formatCurrency(refundAmount, 2)}.`);
+      return;
+    }
+
+    try {
+      setRefundSaving(true);
+      const res = await ApiService.updateRefundAllocations(detailTxn.id, [{
+        expense_transaction_id: selectedRefundExpenseId,
+        amount,
+      }]);
+
+      setRefundAllocations(res.allocations || []);
+      setTransactions((prev) => prev.map((txn) => (
+        txn.id === detailTxn.id
+          ? {
+              ...txn,
+              refund_allocated_out: res.total_allocated,
+              refund_targets_count: res.allocations?.length || 0,
+            }
+          : txn
+      )));
+
+      closeRefundModal();
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to save refund allocation');
+    } finally {
+      setRefundSaving(false);
+    }
+  };
+
+  const clearRefundAllocation = async () => {
+    if (!detailTxn) return;
+
+    try {
+      setRefundSaving(true);
+      const res = await ApiService.updateRefundAllocations(detailTxn.id, []);
+      setRefundAllocations(res.allocations || []);
+      setTransactions((prev) => prev.map((txn) => (
+        txn.id === detailTxn.id
+          ? {
+              ...txn,
+              refund_allocated_out: 0,
+              refund_targets_count: 0,
+            }
+          : txn
+      )));
+      closeRefundModal();
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to clear refund allocation');
+    } finally {
+      setRefundSaving(false);
     }
   };
 
@@ -421,6 +683,16 @@ const TransactionsScreen = () => {
                     >
                       <Text style={[styles.badgeText, { color: txn.category_color || colors.textSecondary }]} numberOfLines={1}>{txn.category_name || 'Uncategorized'}</Text>
                     </TouchableOpacity>
+                    {txn.has_split ? (
+                      <View style={[styles.miniTag, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                        <Text style={[styles.miniTagText, { color: colors.textSecondary }]}>Split</Text>
+                      </View>
+                    ) : null}
+                    {Number(txn.refund_allocated_out || 0) > 0 ? (
+                      <View style={[styles.miniTag, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                        <Text style={[styles.miniTagText, { color: colors.textSecondary }]}>Refund linked</Text>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
                 <View style={styles.txnRight}>
@@ -491,6 +763,53 @@ const TransactionsScreen = () => {
                 <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
                   <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Source</Text>
                   <Text style={[styles.detailValue, { color: colors.text }]}>{formatTxnSource(detailTxn.source)}</Text>
+                </View>
+
+                {detailTxn.has_split ? (
+                  <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Split</Text>
+                    <Text style={[styles.detailValue, { color: colors.text }]}>
+                      {detailTxn.split_count || 0} lines • {formatCurrency(Number(detailTxn.split_total || detailTxn.amount), 2)}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {detailTxn.transaction_type === 'debit' && Number(detailTxn.refund_allocated_amount || 0) > 0 ? (
+                  <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Refund offsets</Text>
+                    <Text style={[styles.detailValue, { color: colors.success }]}>
+                      -{formatCurrency(Number(detailTxn.refund_allocated_amount || 0), 2)}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {detailTxn.transaction_type === 'credit' && Number(detailTxn.refund_allocated_out || 0) > 0 ? (
+                  <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Allocated to expenses</Text>
+                    <Text style={[styles.detailValue, { color: colors.text }]}>
+                      {formatCurrency(Number(detailTxn.refund_allocated_out || 0), 2)}
+                    </Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.detailActionsRow}>
+                  {detailTxn.transaction_type === 'debit' ? (
+                    <TouchableOpacity
+                      style={[styles.detailActionBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
+                      onPress={() => openSplitEditor(detailTxn)}
+                    >
+                      <Text style={[styles.detailActionText, { color: colors.text }]}>Manage Split</Text>
+                    </TouchableOpacity>
+                  ) : null}
+
+                  {detailTxn.transaction_type === 'credit' ? (
+                    <TouchableOpacity
+                      style={[styles.detailActionBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
+                      onPress={() => openRefundAllocator(detailTxn)}
+                    >
+                      <Text style={[styles.detailActionText, { color: colors.text }]}>Allocate Refund</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               </View>
             ) : null}
@@ -627,6 +946,179 @@ const TransactionsScreen = () => {
         </View>
       </Modal>
 
+      <Modal
+        visible={splitModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeSplitModal}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Manage Split</Text>
+              <TouchableOpacity onPress={closeSplitModal} disabled={splitSaving}>
+                <Text style={[styles.modalClose, { color: colors.textSecondary }]}>Close</Text>
+              </TouchableOpacity>
+            </View>
+
+            {detailTxn ? (
+              <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Parent amount: {formatCurrency(Number(detailTxn.amount || 0), 2)}</Text>
+            ) : null}
+
+            <ScrollView style={styles.editorScroll} showsVerticalScrollIndicator={false}>
+              {splitDrafts.map((line, index) => {
+                const category = categories.find((item) => item.id === line.category_id);
+                return (
+                  <View key={`${line.category_id}-${index}`} style={[styles.editorCard, { borderColor: colors.border, backgroundColor: colors.background }]}> 
+                    <View style={styles.editorCardHeader}>
+                      <Text style={[styles.editorCardTitle, { color: colors.text }]}>Line {index + 1}</Text>
+                      {splitDrafts.length > 1 ? (
+                        <TouchableOpacity onPress={() => removeSplitDraftLine(index)} disabled={splitSaving}>
+                          <Text style={[styles.editorDeleteText, { color: colors.error }]}>Remove</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.editorSelectBtn, { borderColor: colors.border }]}
+                      onPress={() => {
+                        setActiveSplitIndex(index);
+                        setSplitCategoryPickerVisible(true);
+                      }}
+                      disabled={splitSaving}
+                    >
+                      <Text style={[styles.editorSelectLabel, { color: colors.textSecondary }]}>Category</Text>
+                      <Text style={[styles.editorSelectValue, { color: category?.color || colors.text }]}>{category?.name || 'Select category'}</Text>
+                    </TouchableOpacity>
+
+                    <TextInput
+                      style={[styles.editorInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.card }]}
+                      placeholder="Amount"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="decimal-pad"
+                      value={line.amountText}
+                      editable={!splitSaving}
+                      onChangeText={(text) => updateSplitDraftLine(index, { amountText: text })}
+                    />
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.editorSecondaryBtn, { borderColor: colors.border }]}
+              onPress={addSplitDraftLine}
+              disabled={splitSaving}
+            >
+              <Text style={[styles.editorSecondaryBtnText, { color: colors.textSecondary }]}>Add Split Line</Text>
+            </TouchableOpacity>
+
+            <View style={styles.modalActionsRow}>
+              <TouchableOpacity
+                style={[styles.modalSecondaryBtn, { borderColor: colors.border }]}
+                onPress={closeSplitModal}
+                disabled={splitSaving}
+              >
+                <Text style={[styles.modalSecondaryBtnText, { color: colors.textSecondary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalPrimaryBtn, { backgroundColor: colors.primary, opacity: splitSaving ? 0.7 : 1 }]}
+                onPress={saveSplitDrafts}
+                disabled={splitSaving}
+              >
+                <Text style={[styles.modalPrimaryBtnText, { color: isDark ? '#000' : '#fff' }]}>{splitSaving ? 'Saving...' : 'Save Split'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={refundModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeRefundModal}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Allocate Refund</Text>
+              <TouchableOpacity onPress={closeRefundModal} disabled={refundSaving}>
+                <Text style={[styles.modalClose, { color: colors.textSecondary }]}>Close</Text>
+              </TouchableOpacity>
+            </View>
+
+            {detailTxn ? (
+              <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Refund amount: {formatCurrency(Number(detailTxn.amount || 0), 2)}</Text>
+            ) : null}
+
+            {refundAllocations.length > 0 ? (
+              <Text style={[styles.modalHint, { color: colors.success }]}>Currently allocated: {formatCurrency(Number(refundAllocations.reduce((sum, item) => sum + Number(item.amount || 0), 0)), 2)}</Text>
+            ) : null}
+
+            <Text style={[styles.modalSectionTitle, { color: colors.textSecondary }]}>Choose Expense Transaction</Text>
+            <ScrollView style={styles.editorScroll} showsVerticalScrollIndicator={false}>
+              {refundCandidates.map((txn) => {
+                const active = txn.id === selectedRefundExpenseId;
+                return (
+                  <TouchableOpacity
+                    key={txn.id}
+                    style={[
+                      styles.expensePickRow,
+                      { borderColor: colors.border, backgroundColor: colors.background },
+                      active && { borderColor: colors.primary },
+                    ]}
+                    onPress={() => setSelectedRefundExpenseId(txn.id)}
+                    disabled={refundSaving}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.expensePickTitle, { color: colors.text }]} numberOfLines={1}>{formatTxnDisplayName(txn)}</Text>
+                      <Text style={[styles.expensePickSub, { color: colors.textSecondary }]}>{formatTxnDateLocal(txn.transaction_date)} • {txn.category_name || 'Uncategorized'}</Text>
+                    </View>
+                    <Text style={[styles.expensePickAmt, { color: colors.error }]}>{formatCurrency(Number(txn.amount || 0), 0)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+
+              {refundCandidates.length === 0 ? (
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No recent debit transactions found.</Text>
+              ) : null}
+            </ScrollView>
+
+            {selectedRefundExpense ? (
+              <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Target: {formatTxnDisplayName(selectedRefundExpense)}</Text>
+            ) : null}
+
+            <TextInput
+              style={[styles.editorInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+              placeholder="Allocation amount"
+              placeholderTextColor={colors.textSecondary}
+              keyboardType="decimal-pad"
+              value={refundAmountText}
+              editable={!refundSaving}
+              onChangeText={setRefundAmountText}
+            />
+
+            <View style={styles.modalActionsRow}>
+              <TouchableOpacity
+                style={[styles.modalSecondaryBtn, { borderColor: colors.border }]}
+                onPress={clearRefundAllocation}
+                disabled={refundSaving}
+              >
+                <Text style={[styles.modalSecondaryBtnText, { color: colors.textSecondary }]}>Clear</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalPrimaryBtn, { backgroundColor: colors.primary, opacity: refundSaving ? 0.7 : 1 }]}
+                onPress={saveRefundAllocation}
+                disabled={refundSaving}
+              >
+                <Text style={[styles.modalPrimaryBtnText, { color: isDark ? '#000' : '#fff' }]}>{refundSaving ? 'Saving...' : 'Save Allocation'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <CategoryPickerModal
         visible={filterCategoryPickerVisible}
         onClose={() => setFilterCategoryPickerVisible(false)}
@@ -647,6 +1139,23 @@ const TransactionsScreen = () => {
         categories={categories}
         currentCategoryId={selectedTxn?.category_id}
         onSelect={onSelectTxnCategory}
+      />
+
+      <CategoryPickerModal
+        visible={splitCategoryPickerVisible}
+        onClose={() => {
+          setSplitCategoryPickerVisible(false);
+          setActiveSplitIndex(null);
+        }}
+        categories={categories}
+        currentCategoryId={activeSplitIndex != null ? splitDrafts[activeSplitIndex]?.category_id : undefined}
+        onSelect={(categoryId) => {
+          if (activeSplitIndex != null) {
+            updateSplitDraftLine(activeSplitIndex, { category_id: categoryId });
+          }
+          setSplitCategoryPickerVisible(false);
+          setActiveSplitIndex(null);
+        }}
       />
     </View>
   );
@@ -835,6 +1344,13 @@ const styles = StyleSheet.create({
     maxWidth: 130,
   },
   badgeText: { fontSize: 10, fontWeight: '700' },
+  miniTag: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  miniTagText: { fontSize: 9, fontWeight: '700' },
   txnAmount: { fontSize: 14, fontWeight: '700' },
   eyeButton: {
     width: 28,
@@ -857,6 +1373,74 @@ const styles = StyleSheet.create({
   },
   detailLabel: { fontSize: 12, fontWeight: '600' },
   detailValue: { flex: 1, textAlign: 'right', fontSize: 13, fontWeight: '600' },
+  detailActionsRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  detailActionBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  detailActionText: { fontSize: 12, fontWeight: '700' },
+  editorScroll: {
+    maxHeight: 280,
+    marginBottom: 8,
+  },
+  editorCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 8,
+  },
+  editorCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  editorCardTitle: { fontSize: 12, fontWeight: '700' },
+  editorDeleteText: { fontSize: 12, fontWeight: '700' },
+  editorSelectBtn: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  editorSelectLabel: { fontSize: 10, fontWeight: '700' },
+  editorSelectValue: { fontSize: 13, fontWeight: '700', marginTop: 2 },
+  editorInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  editorSecondaryBtn: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  editorSecondaryBtnText: { fontSize: 12, fontWeight: '700' },
+  expensePickRow: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  expensePickTitle: { fontSize: 13, fontWeight: '700' },
+  expensePickSub: { fontSize: 11, marginTop: 2 },
+  expensePickAmt: { fontSize: 12, fontWeight: '700' },
   divider: { height: 1, marginLeft: 16 },
   emptyText: { textAlign: 'center', fontSize: 13, paddingVertical: 24 },
 });

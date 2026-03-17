@@ -36,9 +36,23 @@ interface SyncResult {
   savedCreditCount: number;
   savedDebitAmount: number;
   savedCreditAmount: number;
+  asyncStarted?: boolean;
+  jobId?: number;
+  jobStatus?: 'pending' | 'processing' | 'completed' | 'failed';
   didSkip?: boolean;
   skipReason?: string;
   error?: string;
+}
+
+interface SyncJobStatusPayload {
+  id: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  totalItems: number;
+  processedItems: number;
+  savedItems: number;
+  skippedItems: number;
+  errorMessage?: string | null;
 }
 
 interface AutoSyncSnapshot extends SyncResult {
@@ -67,6 +81,8 @@ const AUTO_LAST_RESULT_KEY = 'sms_auto_last_result';
 const AUTO_NOTIFICATION_CHANNEL = 'sms-sync-auto';
 const REALTIME_EVENT_NAME = 'SMSIncoming';
 const REALTIME_SYNC_DEBOUNCE_MS = 12000;
+const MANUAL_SYNC_JOB_POLL_INTERVAL_MS = 5000;
+const MANUAL_SYNC_JOB_MAX_POLLS = 180;
 
 let notificationsConfigured = false;
 
@@ -97,6 +113,8 @@ const toNumber = (value: any): number => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 };
+
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const ensureNotificationPermissions = async (): Promise<boolean> => {
   if (Platform.OS !== 'android') {
@@ -178,6 +196,40 @@ const sendAutoSyncSummaryNotification = async (result: SyncResult): Promise<void
     });
   } catch (error) {
     console.warn('[useSMSSync] Failed to send auto-sync notification:', error);
+  }
+};
+
+const sendManualSyncSummaryNotification = async (status: SyncJobStatusPayload): Promise<void> => {
+  const allowed = await ensureNotificationPermissions();
+  if (!allowed) {
+    return;
+  }
+
+  const success = status.status === 'completed';
+  const title = success ? '30-Day Re-sync Complete' : '30-Day Re-sync Failed';
+  const body = success
+    ? `Processed ${status.totalItems} | Synced ${status.savedItems} | Duplicates ${status.skippedItems}`
+    : `Processed ${status.processedItems}/${status.totalItems}. ${status.errorMessage || 'Please retry.'}`;
+
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data: {
+          mode: 'manual',
+          status: status.status,
+          total: status.totalItems,
+          saved: status.savedItems,
+          skipped: status.skippedItems,
+          jobId: status.id,
+        },
+      },
+      trigger: null,
+      identifier: `sms-sync-manual-${status.id}-${Date.now()}`,
+    });
+  } catch (error) {
+    console.warn('[useSMSSync] Failed to send manual sync notification:', error);
   }
 };
 
@@ -283,6 +335,41 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
     ]);
 
     setLastAutoSyncResult(snapshot);
+  }, []);
+
+  const monitorManualSyncJob = useCallback(async (jobId: number) => {
+    for (let attempt = 0; attempt < MANUAL_SYNC_JOB_MAX_POLLS; attempt++) {
+      await wait(MANUAL_SYNC_JOB_POLL_INTERVAL_MS);
+
+      try {
+        const status = await api.getSyncJobStatus(jobId) as SyncJobStatusPayload;
+        if (status.status !== 'completed' && status.status !== 'failed') {
+          continue;
+        }
+
+        if (status.status === 'completed') {
+          const newSyncTime = Date.now();
+          await AsyncStorage.setItem(LAST_SYNC_KEY, newSyncTime.toString());
+          setLastSyncTime(newSyncTime);
+        }
+
+        await sendManualSyncSummaryNotification(status);
+        return;
+      } catch (error) {
+        console.warn('[useSMSSync] Failed polling manual sync job status:', error);
+      }
+    }
+
+    await sendManualSyncSummaryNotification({
+      id: jobId,
+      status: 'failed',
+      progress: 0,
+      totalItems: 0,
+      processedItems: 0,
+      savedItems: 0,
+      skippedItems: 0,
+      errorMessage: 'Sync status polling timed out. Please check sync logs.',
+    });
   }, []);
 
   const syncSMS = useCallback(async (opts?: SyncSMSOptions): Promise<SyncResult> => {
@@ -425,6 +512,46 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
       }));
 
       // Send to server for parsing
+      const isAsyncManualResync = mode === 'manual' && shouldForceLookback && forceLookbackDays >= 30;
+
+      if (isAsyncManualResync) {
+        const response = await api.parseSMS(formattedMessages, {
+          async: true,
+          mode,
+          forceLookbackDays,
+        });
+        const payload = response?.data?.data || {};
+        const jobId = toNumber(payload.job_id || payload.jobId);
+
+        if (jobId <= 0) {
+          throw new Error('Failed to start background SMS sync job');
+        }
+
+        const startedResult: SyncResult = {
+          success: true,
+          mode,
+          count: bankSMS.length,
+          parsed: 0,
+          saved: 0,
+          skipped: 0,
+          skippedHighConfidence: 0,
+          flaggedPossibleDuplicates: 0,
+          aiCheckedTransactions: 0,
+          duplicateFallbackUsed: 0,
+          savedDebitCount: 0,
+          savedCreditCount: 0,
+          savedDebitAmount: 0,
+          savedCreditAmount: 0,
+          asyncStarted: true,
+          jobId,
+          jobStatus: 'pending',
+        };
+
+        // Fire-and-forget monitoring so user does not wait on 30-day re-sync.
+        void monitorManualSyncJob(jobId);
+        return startedResult;
+      }
+
       const response = await api.parseSMS(formattedMessages);
       const payload = response?.data?.data || {};
       const skippedHighConfidence = toNumber(payload.skipped_high_confidence ?? payload.skipped_duplicates);
@@ -489,7 +616,7 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
       setIsSyncing(false);
       syncInFlightRef.current = false;
     }
-  }, [persistAutoSyncResult]);
+  }, [monitorManualSyncJob, persistAutoSyncResult]);
 
   const scheduleRealtimeSync = useCallback(() => {
     if (realtimeTimeoutRef.current) {

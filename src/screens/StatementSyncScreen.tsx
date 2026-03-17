@@ -18,6 +18,15 @@ import { StatementUploadResult } from '../types/transactions';
 
 type SupportedBank = 'sbi' | 'icici';
 
+const getApiErrorMessage = (error: any, fallback: string): string => {
+  const serverMessage = error?.response?.data?.error;
+  if (typeof serverMessage === 'string' && serverMessage.trim().length > 0) {
+    return serverMessage;
+  }
+
+  return error?.message || fallback;
+};
+
 const StatementSyncScreen = () => {
   const { colors } = useTheme();
   const { refreshAll } = useData();
@@ -36,6 +45,11 @@ const StatementSyncScreen = () => {
   const trimmedCardLastFour = useMemo(() => {
     const digits = cardLastFour.replace(/\D+/g, '');
     return digits.slice(-4);
+  }, [cardLastFour]);
+
+  const hasPartialCardDigits = useMemo(() => {
+    const digits = cardLastFour.replace(/\D+/g, '');
+    return digits.length > 0 && digits.length < 4;
   }, [cardLastFour]);
 
   const handlePickPdf = async () => {
@@ -64,8 +78,8 @@ const StatementSyncScreen = () => {
   };
 
   const handleSavePassword = async () => {
-    if (trimmedCardLastFour.length !== 4) {
-      Alert.alert('Card digits required', 'Please enter your card last 4 digits.');
+    if (hasPartialCardDigits) {
+      Alert.alert('Invalid card digits', 'Enter exactly 4 digits or leave it empty.');
       return;
     }
 
@@ -86,19 +100,23 @@ const StatementSyncScreen = () => {
       setStatementPassword('');
       Alert.alert('Saved', 'Statement password stored securely on server.');
     } catch (error: any) {
-      Alert.alert('Save failed', error?.message || 'Unable to save statement password.');
+      Alert.alert('Save failed', getApiErrorMessage(error, 'Unable to save statement password.'));
     } finally {
       setIsSavingPassword(false);
     }
   };
 
   const handleRemovePassword = async () => {
-    if (trimmedCardLastFour.length !== 4) {
-      Alert.alert('Card digits required', 'Please enter your card last 4 digits.');
+    if (hasPartialCardDigits) {
+      Alert.alert('Invalid card digits', 'Enter exactly 4 digits or leave it empty.');
       return;
     }
 
-    Alert.alert('Remove saved password', 'This will remove the stored statement password for this card.', [
+    const removeMessage = trimmedCardLastFour.length === 4
+      ? 'This will remove the stored statement password for this card.'
+      : 'This will remove all saved statement passwords for this bank.';
+
+    Alert.alert('Remove saved password', removeMessage, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',
@@ -114,7 +132,7 @@ const StatementSyncScreen = () => {
             setHasSavedPassword(false);
             Alert.alert('Removed', 'Saved statement password was removed.');
           } catch (error: any) {
-            Alert.alert('Remove failed', error?.message || 'Unable to remove statement password.');
+            Alert.alert('Remove failed', getApiErrorMessage(error, 'Unable to remove statement password.'));
           } finally {
             setIsRemovingPassword(false);
           }
@@ -124,8 +142,8 @@ const StatementSyncScreen = () => {
   };
 
   const handleUpload = async () => {
-    if (trimmedCardLastFour.length !== 4) {
-      Alert.alert('Card digits required', 'Please enter your card last 4 digits.');
+    if (hasPartialCardDigits) {
+      Alert.alert('Invalid card digits', 'Enter exactly 4 digits or leave it empty.');
       return;
     }
 
@@ -160,7 +178,7 @@ const StatementSyncScreen = () => {
 
       Alert.alert(title, message);
     } catch (error: any) {
-      Alert.alert('Upload failed', error?.message || 'Unable to process statement PDF.');
+      Alert.alert('Upload failed', getApiErrorMessage(error, 'Unable to process statement PDF.'));
     } finally {
       setIsUploading(false);
     }
@@ -199,13 +217,13 @@ const StatementSyncScreen = () => {
           })}
         </View>
 
-        <Text style={[styles.label, { color: colors.text }]}>Card Last 4 Digits</Text>
+        <Text style={[styles.label, { color: colors.text }]}>Card Last 4 Digits (Optional)</Text>
         <TextInput
           value={cardLastFour}
           onChangeText={setCardLastFour}
           keyboardType="number-pad"
           maxLength={4}
-          placeholder="e.g. 6529"
+          placeholder="Optional - e.g. 6529"
           placeholderTextColor={colors.placeholder}
           style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
         />
@@ -213,7 +231,7 @@ const StatementSyncScreen = () => {
 
       <View style={[styles.section, { backgroundColor: colors.card }]}> 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Secure Password Setup</Text>
-        <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>Save password once on the server vault for {selectedBank.toUpperCase()} card ending in last 4 digits. Upload flow uses it securely without sending password each time.</Text>
+        <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>Save password once on the server vault. If card last 4 digits is empty, upload will try all saved passwords for {selectedBank.toUpperCase()}.</Text>
 
         <TextInput
           value={statementPassword}
@@ -259,7 +277,7 @@ const StatementSyncScreen = () => {
         <Text style={[styles.hint, { color: hasSavedPassword ? colors.success : colors.textSecondary }]}>
           {hasSavedPassword
             ? `${selectedBank.toUpperCase()} password saved in this session.`
-            : `Save ${selectedBank.toUpperCase()} password before uploading statement PDF.`}
+            : `Save one or more ${selectedBank.toUpperCase()} passwords before uploading statement PDF.`}
         </Text>
       </View>
 
