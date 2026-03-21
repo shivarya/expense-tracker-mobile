@@ -94,41 +94,22 @@ const parseTxnDate = (value: string): Date | null => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
-const IST_TIMEZONE = 'Asia/Kolkata';
-
-const formatInIST = (date: Date, options: Intl.DateTimeFormatOptions): string => {
-  try {
-    return new Intl.DateTimeFormat('en-IN', {
-      timeZone: IST_TIMEZONE,
-      ...options,
-    }).format(date);
-  } catch {
-    return new Intl.DateTimeFormat('en-IN', options).format(date);
-  }
-};
-
 const formatTxnDateLocal = (value: string): string => {
   const date = parseTxnDate(value);
   if (!date) return value;
-  const weekday = formatInIST(date, { weekday: 'short' });
-  const dateLabel = formatInIST(date, { day: 'numeric', month: 'short' });
-  return `${weekday}, ${dateLabel}`;
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 };
 
 const formatTxnTimeLocal = (value: string): string => {
   const date = parseTxnDate(value);
   if (!date) return '--';
-  const timeLabel = formatInIST(date, { hour: 'numeric', minute: '2-digit', hour12: true });
-  return `${timeLabel} IST`;
+  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 };
 
 const formatTxnDateTimeLocal = (value: string): string => {
   const date = parseTxnDate(value);
   if (!date) return value;
-  const weekday = formatInIST(date, { weekday: 'short' });
-  const dateLabel = formatInIST(date, { day: 'numeric', month: 'short', year: 'numeric' });
-  const timeLabel = formatInIST(date, { hour: 'numeric', minute: '2-digit', hour12: true });
-  return `${weekday}, ${dateLabel}, ${timeLabel} IST`;
+  return date.toLocaleString();
 };
 
 const formatTxnSource = (source?: string): string => {
@@ -814,7 +795,7 @@ const TransactionsScreen = () => {
                 <View style={styles.txnInfo}>
                   <Text style={[styles.txnMerchant, { color: colors.text }]} numberOfLines={1}>{txn.merchant || txn.description || 'Transaction'}</Text>
                   <View style={styles.metaRow}>
-                    <Text style={[styles.txnDate, { color: colors.textSecondary }]}>{formatTxnTimeLocal(txn.transaction_date)}</Text>
+                    <Text style={[styles.txnDate, { color: colors.textSecondary }]}>{formatTxnDateLocal(txn.transaction_date)} • {formatTxnTimeLocal(txn.transaction_date)}</Text>
                     <TouchableOpacity
                       onPress={() => onEditCategoryTap(txn)}
                       style={[styles.badge, { backgroundColor: (txn.category_color || colors.textSecondary) + '20' }]}

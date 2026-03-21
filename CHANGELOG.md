@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.5.12] - 2026-03-21
+### Added
+- Local Android production build commands: `build:production:local` and `build:production:local:no-bump`.
+- Emulator cleanup helper script to free storage before installs: `android:free-space`.
+### Changed
+- Transactions list now uses device-local date and time formatting again.
+### Fixed
+- Restored visible transaction dates in list rows (date + time now shown together).
+
+### Google Play Notes
+- Fixed transaction list date visibility so date and time are shown clearly.
+- Improved local time display behavior in transaction rows.
+- Added reliability helpers for local Android builds and emulator storage cleanup.
+
 ## [2.5.11] - 2026-03-18
 ### Added
 - Merchant name edit in Transactions details (in-app).
