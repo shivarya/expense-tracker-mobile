@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,11 @@ import {
   Alert,
   Modal,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useData } from '../contexts/DataContext';
 import {
@@ -92,22 +94,41 @@ const parseTxnDate = (value: string): Date | null => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
+const IST_TIMEZONE = 'Asia/Kolkata';
+
+const formatInIST = (date: Date, options: Intl.DateTimeFormatOptions): string => {
+  try {
+    return new Intl.DateTimeFormat('en-IN', {
+      timeZone: IST_TIMEZONE,
+      ...options,
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat('en-IN', options).format(date);
+  }
+};
+
 const formatTxnDateLocal = (value: string): string => {
   const date = parseTxnDate(value);
   if (!date) return value;
-  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  const weekday = formatInIST(date, { weekday: 'short' });
+  const dateLabel = formatInIST(date, { day: 'numeric', month: 'short' });
+  return `${weekday}, ${dateLabel}`;
 };
 
 const formatTxnTimeLocal = (value: string): string => {
   const date = parseTxnDate(value);
   if (!date) return '--';
-  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const timeLabel = formatInIST(date, { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${timeLabel} IST`;
 };
 
 const formatTxnDateTimeLocal = (value: string): string => {
   const date = parseTxnDate(value);
   if (!date) return value;
-  return date.toLocaleString();
+  const weekday = formatInIST(date, { weekday: 'short' });
+  const dateLabel = formatInIST(date, { day: 'numeric', month: 'short', year: 'numeric' });
+  const timeLabel = formatInIST(date, { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${weekday}, ${dateLabel}, ${timeLabel} IST`;
 };
 
 const formatTxnSource = (source?: string): string => {
@@ -139,6 +160,8 @@ const parseAmountInput = (value: string): number => {
   return Math.round(parsed * 100) / 100;
 };
 
+const PAGE_SIZE = 50;
+
 const TransactionsScreen = () => {
   const { colors, isDark } = useTheme();
   const { categories, refreshCategories } = useData();
@@ -150,6 +173,9 @@ const TransactionsScreen = () => {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [paginationOffset, setPaginationOffset] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [groups, setGroups] = useState<TransactionGroup[]>([]);
@@ -172,6 +198,9 @@ const TransactionsScreen = () => {
   const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
   const [detailTxn, setDetailTxn] = useState<Transaction | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [editNameModalVisible, setEditNameModalVisible] = useState(false);
+  const [editNameText, setEditNameText] = useState('');
+  const [nameSaving, setNameSaving] = useState(false);
 
   const [splitModalVisible, setSplitModalVisible] = useState(false);
   const [splitSaving, setSplitSaving] = useState(false);
@@ -185,6 +214,7 @@ const TransactionsScreen = () => {
   const [refundAllocations, setRefundAllocations] = useState<RefundAllocation[]>([]);
   const [selectedRefundExpenseId, setSelectedRefundExpenseId] = useState<number | null>(null);
   const [refundAmountText, setRefundAmountText] = useState('');
+  const hasLoadedOnceRef = useRef(false);
 
   const selectedCategory = categories.find((item) => item.id === selectedCategoryId);
   const selectedGroup = groups.find((item) => item.id === selectedGroupId);
@@ -213,33 +243,88 @@ const TransactionsScreen = () => {
     navigation.navigate('More', { screen: 'Groups' });
   };
 
+  const buildFetchParams = useCallback((offset: number = 0) => {
+    const monthFilter = monthOptions.find((item) => item.key === selectedMonth);
+    const dateFilter = selectedMonth !== 'all'
+      ? { startDate: monthFilter?.startDate, endDate: monthFilter?.endDate }
+      : getRangeDates(selectedRange);
+
+    return {
+      start_date: useRouteDateOverride ? params.startDate : dateFilter.startDate,
+      end_date: useRouteDateOverride ? params.endDate : dateFilter.endDate,
+      category_id: selectedCategoryId,
+      group_id: selectedGroupId,
+      type: selectedType === 'all' ? undefined : selectedType,
+      limit: PAGE_SIZE,
+      offset,
+    };
+  }, [monthOptions, params.endDate, params.startDate, selectedCategoryId, selectedGroupId, selectedMonth, selectedRange, selectedType, useRouteDateOverride]);
+
   const fetchTransactions = useCallback(async (showLoader = true) => {
     try {
       if (showLoader) setLoading(true);
 
-      const monthFilter = monthOptions.find((item) => item.key === selectedMonth);
-      const dateFilter = selectedMonth !== 'all'
-        ? { startDate: monthFilter?.startDate, endDate: monthFilter?.endDate }
-        : getRangeDates(selectedRange);
+      const res = await ApiService.getTransactions(buildFetchParams(0));
+      const fetchedTransactions = res.transactions || [];
+      const totalCount = Number(res.summary?.total_count || 0);
 
-      const res = await ApiService.getTransactions({
-        start_date: useRouteDateOverride ? params.startDate : dateFilter.startDate,
-        end_date: useRouteDateOverride ? params.endDate : dateFilter.endDate,
-        category_id: selectedCategoryId,
-        group_id: selectedGroupId,
-        type: selectedType === 'all' ? undefined : selectedType,
-        limit: 50,
-      });
-
-      setTransactions(res.transactions || []);
+      setTransactions(fetchedTransactions);
       setSummary(res.summary || null);
+      setPaginationOffset(fetchedTransactions.length);
+      setHasMore(fetchedTransactions.length < totalCount);
+      hasLoadedOnceRef.current = true;
     } catch (error: any) {
       Alert.alert('Error', error?.message || 'Failed to load transactions');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [monthOptions, params.endDate, params.startDate, selectedCategoryId, selectedGroupId, selectedMonth, selectedRange, selectedType, useRouteDateOverride]);
+  }, [buildFetchParams]);
+
+  const loadMoreTransactions = useCallback(async () => {
+    if (loading || refreshing || loadingMore || !hasMore) {
+      return;
+    }
+
+    try {
+      setLoadingMore(true);
+      const res = await ApiService.getTransactions(buildFetchParams(paginationOffset));
+      const incoming = res.transactions || [];
+      const totalCount = Number(res.summary?.total_count || 0);
+      let mergedCount = paginationOffset;
+
+      setTransactions((prev) => {
+        const seen = new Set(prev.map((item) => item.id));
+        const merged = [...prev];
+        incoming.forEach((txn) => {
+          if (!seen.has(txn.id)) {
+            merged.push(txn);
+          }
+        });
+        mergedCount = merged.length;
+        return merged;
+      });
+
+      setPaginationOffset(mergedCount);
+      setHasMore(mergedCount < totalCount && incoming.length > 0);
+
+      if (res.summary) {
+        setSummary(res.summary);
+      }
+    } catch {
+      // Avoid noisy toasts during scroll-driven pagination retries.
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [buildFetchParams, hasMore, loading, loadingMore, paginationOffset, refreshing]);
+
+  const onTransactionsScroll = useCallback((event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const distanceFromBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y);
+    if (distanceFromBottom < 260) {
+      loadMoreTransactions();
+    }
+  }, [loadMoreTransactions]);
 
   const openFilterModal = () => {
     setDraftMonth(selectedMonth);
@@ -283,6 +368,14 @@ const TransactionsScreen = () => {
   useEffect(() => {
     fetchTransactions(true);
   }, [fetchTransactions]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (hasLoadedOnceRef.current) {
+        fetchTransactions(false);
+      }
+    }, [fetchTransactions])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -328,6 +421,49 @@ const TransactionsScreen = () => {
   const closeTxnDetails = () => {
     setDetailModalVisible(false);
     setDetailTxn(null);
+  };
+
+  const openEditNameModal = (txn: Transaction) => {
+    setDetailModalVisible(false);
+    setDetailTxn(txn);
+    setEditNameText((txn.merchant || '').trim());
+    setEditNameModalVisible(true);
+  };
+
+  const closeEditNameModal = () => {
+    setEditNameModalVisible(false);
+    setEditNameText('');
+  };
+
+  const saveEditedName = async () => {
+    if (!detailTxn) return;
+
+    const merchant = editNameText.trim();
+    if (!merchant) {
+      Alert.alert('Validation', 'Transaction name cannot be empty.');
+      return;
+    }
+
+    try {
+      setNameSaving(true);
+      const res = await ApiService.updateTransactionName(detailTxn.id, merchant);
+
+      setTransactions((prev) => prev.map((txn) => (
+        txn.id === detailTxn.id
+          ? {
+              ...txn,
+              merchant: res.merchant,
+            }
+          : txn
+      )));
+
+      setDetailTxn((prev) => (prev ? { ...prev, merchant: res.merchant } : prev));
+      closeEditNameModal();
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to update transaction name');
+    } finally {
+      setNameSaving(false);
+    }
   };
 
   const onSelectTxnCategory = async (categoryId: number) => {
@@ -588,6 +724,8 @@ const TransactionsScreen = () => {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        onScroll={onTransactionsScroll}
+        scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <View style={styles.filtersWrap}>
@@ -658,7 +796,7 @@ const TransactionsScreen = () => {
           ) : null}
 
           <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-            <Text style={[styles.summaryText, { color: colors.textSecondary }]}>Showing {transactions.length} / 50 transactions</Text>
+            <Text style={[styles.summaryText, { color: colors.textSecondary }]}>Showing {transactions.length} / {Number(summary?.total_count || transactions.length)} transactions</Text>
             <Text style={[styles.summaryAmount, { color: colors.error }]}>Spent {formatCurrency(Number(summary?.total_debit || 0), 0)}</Text>
           </View>
         </View>
@@ -676,7 +814,7 @@ const TransactionsScreen = () => {
                 <View style={styles.txnInfo}>
                   <Text style={[styles.txnMerchant, { color: colors.text }]} numberOfLines={1}>{txn.merchant || txn.description || 'Transaction'}</Text>
                   <View style={styles.metaRow}>
-                    <Text style={[styles.txnDate, { color: colors.textSecondary }]}>{formatTxnDateLocal(txn.transaction_date)} • {formatTxnTimeLocal(txn.transaction_date)}</Text>
+                    <Text style={[styles.txnDate, { color: colors.textSecondary }]}>{formatTxnTimeLocal(txn.transaction_date)}</Text>
                     <TouchableOpacity
                       onPress={() => onEditCategoryTap(txn)}
                       style={[styles.badge, { backgroundColor: (txn.category_color || colors.textSecondary) + '20' }]}
@@ -715,6 +853,21 @@ const TransactionsScreen = () => {
           {transactions.length === 0 && (
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No transactions found for selected filters.</Text>
           )}
+
+          {loadingMore ? (
+            <View style={styles.loadMoreWrap}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={[styles.loadMoreText, { color: colors.textSecondary }]}>Loading more transactions...</Text>
+            </View>
+          ) : hasMore ? (
+            <View style={styles.loadMoreWrap}>
+              <Text style={[styles.loadMoreText, { color: colors.textSecondary }]}>Scroll to load more</Text>
+            </View>
+          ) : transactions.length > 0 ? (
+            <View style={styles.loadMoreWrap}>
+              <Text style={[styles.loadMoreText, { color: colors.textSecondary }]}>All matching transactions loaded</Text>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -793,6 +946,13 @@ const TransactionsScreen = () => {
                 ) : null}
 
                 <View style={styles.detailActionsRow}>
+                  <TouchableOpacity
+                    style={[styles.detailActionBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
+                    onPress={() => openEditNameModal(detailTxn)}
+                  >
+                    <Text style={[styles.detailActionText, { color: colors.text }]}>Edit Name</Text>
+                  </TouchableOpacity>
+
                   {detailTxn.transaction_type === 'debit' ? (
                     <TouchableOpacity
                       style={[styles.detailActionBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
@@ -814,6 +974,59 @@ const TransactionsScreen = () => {
               </View>
             ) : null}
           </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={editNameModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeEditNameModal}
+      >
+        <View style={styles.modalBackdrop}>
+          <KeyboardAvoidingView
+            style={styles.modalKeyboardWrap}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
+          >
+            <View style={[styles.modalCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Edit Transaction Name</Text>
+                <TouchableOpacity onPress={closeEditNameModal} disabled={nameSaving}>
+                  <Text style={[styles.modalClose, { color: colors.textSecondary }]}>Close</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TextInput
+                style={[styles.editorInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+                placeholder="Merchant or transaction name"
+                placeholderTextColor={colors.textSecondary}
+                value={editNameText}
+                onChangeText={setEditNameText}
+                editable={!nameSaving}
+                maxLength={500}
+                autoFocus
+                returnKeyType="done"
+              />
+
+              <View style={styles.modalActionsRow}>
+                <TouchableOpacity
+                  style={[styles.modalSecondaryBtn, { borderColor: colors.border }]}
+                  onPress={closeEditNameModal}
+                  disabled={nameSaving}
+                >
+                  <Text style={[styles.modalSecondaryBtnText, { color: colors.textSecondary }]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalPrimaryBtn, { backgroundColor: colors.primary, opacity: nameSaving ? 0.7 : 1 }]}
+                  onPress={saveEditedName}
+                  disabled={nameSaving}
+                >
+                  <Text style={[styles.modalPrimaryBtnText, { color: isDark ? '#000' : '#fff' }]}>{nameSaving ? 'Saving...' : 'Save Name'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -1274,6 +1487,9 @@ const styles = StyleSheet.create({
     paddingBottom: 22,
     maxHeight: '84%',
   },
+  modalKeyboardWrap: {
+    width: '100%',
+  },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1330,6 +1546,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
   },
+  loadMoreWrap: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  loadMoreText: { fontSize: 12, fontWeight: '600' },
   txnRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
   txnDot: { width: 8, height: 8, borderRadius: 4 },
   txnInfo: { flex: 1 },

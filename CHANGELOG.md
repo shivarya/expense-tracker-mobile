@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.5.11] - 2026-03-18
+### Added
+- Merchant name edit in Transactions details (in-app).
+- 50-item pagination for Transactions list (load more on scroll).
+### Fixed
+- Fixed false 409 on refund-allocation by hardening overlay-table detection (migration 012 check).
+- Corrected misclassified transactions from statement uploads (audit & DB fix applied).
+- Improved SMS & statement parsing normalization to reduce future misclassifications.
+### Changed
+- Client/server improvements for clearer API error messages and duplicate detection counters.
+### Google Play Notes
+- Fixes for refund allocation and transaction misclassification.
+- Edit merchant names directly from Transaction details.
+- Faster Transactions list with 50-item pagination and smooth load-more.
+- General stability and sync reliability improvements.
+
 ## [2.5.8] - 2026-03-17
 ### Added
 - Manual "Re-sync Last 30 Days Now" action in More screen to force a 30-day re-sync.

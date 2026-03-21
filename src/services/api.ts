@@ -34,6 +34,20 @@ class ApiService {
   private baseURL: string;
   private debug: boolean = false;
 
+  private extractApiError(error: any, fallbackMessage: string): string {
+    const responseError = error?.response?.data?.error;
+    if (typeof responseError === 'string' && responseError.trim().length > 0) {
+      return responseError;
+    }
+
+    const responseMessage = error?.response?.data?.message;
+    if (typeof responseMessage === 'string' && responseMessage.trim().length > 0) {
+      return responseMessage;
+    }
+
+    return error?.message || fallbackMessage;
+  }
+
   constructor() {
     // Configuration precedence (development):
     // 1. `app.config.js` / `.env` exposed via `Constants.expoConfig.extra`
@@ -189,12 +203,17 @@ class ApiService {
     group_id?: number;
     type?: string;
     limit?: number;
+    offset?: number;
   }): Promise<{ transactions: Transaction[]; summary: any }> {
-    const response = await this.api.get<ApiResponse<any>>('/transactions', { params });
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error || 'Failed to fetch transactions');
+    try {
+      const response = await this.api.get<ApiResponse<any>>('/transactions', { params });
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || 'Failed to fetch transactions');
+      }
+      return response.data.data;
+    } catch (error: any) {
+      throw new Error(this.extractApiError(error, 'Failed to fetch transactions'));
     }
-    return response.data.data;
   }
 
   // Transaction Groups
@@ -261,6 +280,22 @@ class ApiService {
     return response.data;
   }
 
+  async updateTransactionName(transactionId: number, merchant: string): Promise<{ id: number; merchant: string }> {
+    try {
+      const response = await this.api.patch<ApiResponse<{ id: number; merchant: string }>>(`/transactions/${transactionId}`, {
+        merchant,
+      });
+
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || 'Failed to update transaction name');
+      }
+
+      return response.data.data;
+    } catch (error: any) {
+      throw new Error(this.extractApiError(error, 'Failed to update transaction name'));
+    }
+  }
+
   async updateTransactionCategory(transactionId: number, categoryId: number): Promise<{
     id: number;
     category_id: number;
@@ -278,47 +313,63 @@ class ApiService {
   }
 
   async getTransactionSplits(transactionId: number): Promise<TransactionSplitsResponse> {
-    const response = await this.api.get<ApiResponse<TransactionSplitsResponse>>(`/transactions/${transactionId}/splits`);
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error || 'Failed to fetch transaction splits');
+    try {
+      const response = await this.api.get<ApiResponse<TransactionSplitsResponse>>(`/transactions/${transactionId}/splits`);
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || 'Failed to fetch transaction splits');
+      }
+      return response.data.data;
+    } catch (error: any) {
+      throw new Error(this.extractApiError(error, 'Failed to fetch transaction splits'));
     }
-    return response.data.data;
   }
 
   async updateTransactionSplits(
     transactionId: number,
     splits: Array<Pick<TransactionSplitLine, 'category_id' | 'amount' | 'notes'>>,
   ): Promise<TransactionSplitsResponse> {
-    const response = await this.api.put<ApiResponse<TransactionSplitsResponse>>(`/transactions/${transactionId}/splits`, {
-      splits,
-    });
+    try {
+      const response = await this.api.put<ApiResponse<TransactionSplitsResponse>>(`/transactions/${transactionId}/splits`, {
+        splits,
+      });
 
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error || 'Failed to save transaction splits');
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || 'Failed to save transaction splits');
+      }
+      return response.data.data;
+    } catch (error: any) {
+      throw new Error(this.extractApiError(error, 'Failed to save transaction splits'));
     }
-    return response.data.data;
   }
 
   async getRefundAllocations(transactionId: number): Promise<RefundAllocationsResponse> {
-    const response = await this.api.get<ApiResponse<RefundAllocationsResponse>>(`/transactions/${transactionId}/refund-allocations`);
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error || 'Failed to fetch refund allocations');
+    try {
+      const response = await this.api.get<ApiResponse<RefundAllocationsResponse>>(`/transactions/${transactionId}/refund-allocations`);
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || 'Failed to fetch refund allocations');
+      }
+      return response.data.data;
+    } catch (error: any) {
+      throw new Error(this.extractApiError(error, 'Failed to fetch refund allocations'));
     }
-    return response.data.data;
   }
 
   async updateRefundAllocations(
     transactionId: number,
     allocations: Array<{ expense_transaction_id: number; amount: number; notes?: string }>,
   ): Promise<RefundAllocationsResponse> {
-    const response = await this.api.put<ApiResponse<RefundAllocationsResponse>>(`/transactions/${transactionId}/refund-allocations`, {
-      allocations,
-    });
+    try {
+      const response = await this.api.put<ApiResponse<RefundAllocationsResponse>>(`/transactions/${transactionId}/refund-allocations`, {
+        allocations,
+      });
 
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error || 'Failed to save refund allocations');
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || 'Failed to save refund allocations');
+      }
+      return response.data.data;
+    } catch (error: any) {
+      throw new Error(this.extractApiError(error, 'Failed to save refund allocations'));
     }
-    return response.data.data;
   }
 
   // Bank Accounts
