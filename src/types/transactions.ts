@@ -46,6 +46,16 @@ export interface Transaction {
   refund_allocated_amount?: number;
   refund_targets_count?: number;
   refund_allocated_out?: number;
+  manual_groups?: ManualTransactionGroup[];
+}
+
+export interface ManualTransactionGroup {
+  id: number;
+  name: string;
+  description?: string | null;
+  icon?: string;
+  color?: string;
+  transaction_count?: number;
 }
 
 export interface TransactionSplitLine {

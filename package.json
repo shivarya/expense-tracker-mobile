@@ -1,18 +1,21 @@
 {
   "name": "expense-tracker-mobile",
-  "version": "2.5.12",
+  "version": "2.5.17",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "android:free-space": "powershell -ExecutionPolicy Bypass -File ./scripts/free-emulator-space.ps1",
     "build:production:local": "npm run version:bump:production && cd android && gradlew.bat assembleRelease",
-    "build:production:local:no-bump": "cd android && gradlew.bat assembleRelease",
+    "build:production:local:no-bump": "npm run version:sync:config && cd android && gradlew.bat assembleRelease",
+    "build:production:local:aab": "npm run version:bump:production && cd android && gradlew.bat bundleRelease && cd .. && node ./scripts/print-aab-path.js",
+    "build:production:local:aab:no-bump": "npm run version:sync:config && cd android && gradlew.bat bundleRelease && cd .. && node ./scripts/print-aab-path.js",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest",
     "lint": "eslint .",
-    "version:bump:production": "npm version patch --no-git-tag-version && node ./scripts/sync-app-version.js",
+    "version:sync:config": "node ./scripts/sync-app-version.js",
+    "version:bump:production": "node ./scripts/bump-release-version.js && node ./scripts/sync-app-version.js",
     "build:production": "npm run version:bump:production && npx eas build --platform android --profile production --non-interactive --no-wait"
   },
   "dependencies": {

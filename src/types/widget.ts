@@ -6,6 +6,7 @@ export interface WidgetTrendSummary {
 }
 
 export interface WidgetCategorySummary {
+  category_id?: number | null;
   name: string;
   color: string;
   icon: string;

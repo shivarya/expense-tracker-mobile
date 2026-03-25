@@ -66,6 +66,7 @@ const MoreScreen = () => {
     { id: 'contacts', icon: 'people-outline', label: 'Trusted Contacts', screen: 'TrustedContacts' },
     { id: 'categories', icon: 'pricetags-outline', label: 'Categories', screen: 'Categories' },
     { id: 'groups', icon: 'layers-outline', label: 'Transaction Groups', screen: 'Groups' },
+    { id: 'manual-groups', icon: 'flag-outline', label: 'Manual Groups', screen: 'ManualGroups' },
   ];
 
   const handleThemeChange = (value: 'light' | 'dark' | 'auto') => {

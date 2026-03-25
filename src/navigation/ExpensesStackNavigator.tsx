@@ -11,7 +11,9 @@ export type ExpensesStackParamList = {
     categoryId?: number;
     categoryName?: string;
     groupId?: number;
+    manualGroupId?: number;
     groupName?: string;
+    type?: 'debit' | 'credit';
     headerTitle?: string;
     startDate?: string;
     endDate?: string;

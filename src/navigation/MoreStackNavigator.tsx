@@ -4,6 +4,7 @@ import MoreScreen from '../screens/MoreScreen';
 import TrustedContactsScreen from '../screens/TrustedContactsScreen';
 import MasterCategoriesScreen from '../screens/MasterCategoriesScreen';
 import GroupsScreen from '../screens/GroupsScreen';
+import ManualGroupsScreen from '../screens/ManualGroupsScreen';
 import StatementSyncScreen from '../screens/StatementSyncScreen';
 
 export type MoreStackParamList = {
@@ -11,6 +12,7 @@ export type MoreStackParamList = {
   TrustedContacts: undefined;
   Categories: undefined;
   Groups: undefined;
+  ManualGroups: undefined;
   StatementSync: undefined;
 };
 
@@ -38,6 +40,11 @@ const MoreStackNavigator = () => {
         name="Groups"
         component={GroupsScreen}
         options={{ title: 'Transaction Groups' }}
+      />
+      <Stack.Screen
+        name="ManualGroups"
+        component={ManualGroupsScreen}
+        options={{ title: 'Manual Groups' }}
       />
       <Stack.Screen
         name="StatementSync"

@@ -21,6 +21,7 @@ import {
   Category,
   Transaction,
   TransactionGroup,
+  ManualTransactionGroup,
   RefundAllocation,
 } from '../types/transactions';
 import ApiService from '../services/api';
@@ -34,7 +35,9 @@ interface RouteParams {
   categoryId?: number;
   categoryName?: string;
   groupId?: number;
+  manualGroupId?: number;
   groupName?: string;
+  type?: 'debit' | 'credit';
   startDate?: string;
   endDate?: string;
   initialMonthKey?: 'current';
@@ -90,26 +93,52 @@ const getRangeDates = (key: DateRangeKey): { startDate?: string; endDate?: strin
 };
 
 const parseTxnDate = (value: string): Date | null => {
-  const date = new Date(value);
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+
+  const normalized = /(Z|[+\-]\d{2}:?\d{2})$/.test(raw)
+    ? raw
+    : raw.replace(' ', 'T') + 'Z';
+
+  const date = new Date(normalized);
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
 const formatTxnDateLocal = (value: string): string => {
   const date = parseTxnDate(value);
   if (!date) return value;
-  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  return date.toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'Asia/Kolkata',
+  });
 };
 
 const formatTxnTimeLocal = (value: string): string => {
   const date = parseTxnDate(value);
   if (!date) return '--';
-  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return date.toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'Asia/Kolkata',
+  });
 };
 
 const formatTxnDateTimeLocal = (value: string): string => {
   const date = parseTxnDate(value);
   if (!date) return value;
-  return date.toLocaleString();
+  return date.toLocaleString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Kolkata',
+  });
 };
 
 const formatTxnSource = (source?: string): string => {
@@ -160,12 +189,14 @@ const TransactionsScreen = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [groups, setGroups] = useState<TransactionGroup[]>([]);
+  const [manualGroups, setManualGroups] = useState<ManualTransactionGroup[]>([]);
 
   const [selectedMonth, setSelectedMonth] = useState<string>(params.initialMonthKey === 'current' ? getCurrentMonthKey() : 'all');
   const [selectedRange, setSelectedRange] = useState<DateRangeKey>('30d');
-  const [selectedType, setSelectedType] = useState<TxnType>('all');
+  const [selectedType, setSelectedType] = useState<TxnType>(params.type || 'all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(params.categoryId);
   const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>(params.groupId);
+  const [selectedManualGroupId, setSelectedManualGroupId] = useState<number | undefined>(params.manualGroupId);
   const [useRouteDateOverride, setUseRouteDateOverride] = useState(Boolean(params.startDate || params.endDate));
 
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -173,6 +204,7 @@ const TransactionsScreen = () => {
   const [draftRange, setDraftRange] = useState<DateRangeKey>(selectedRange);
   const [draftType, setDraftType] = useState<TxnType>(selectedType);
   const [draftGroupId, setDraftGroupId] = useState<number | undefined>(selectedGroupId);
+  const [draftManualGroupId, setDraftManualGroupId] = useState<number | undefined>(selectedManualGroupId);
 
   const [filterCategoryPickerVisible, setFilterCategoryPickerVisible] = useState(false);
   const [editCategoryPickerVisible, setEditCategoryPickerVisible] = useState(false);
@@ -182,6 +214,11 @@ const TransactionsScreen = () => {
   const [editNameModalVisible, setEditNameModalVisible] = useState(false);
   const [editNameText, setEditNameText] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
+  const [manualGroupModalVisible, setManualGroupModalVisible] = useState(false);
+  const [manualGroupSelection, setManualGroupSelection] = useState<number[]>([]);
+  const [manualGroupSaving, setManualGroupSaving] = useState(false);
+  const [manualGroupCreateText, setManualGroupCreateText] = useState('');
+  const [manualGroupCreating, setManualGroupCreating] = useState(false);
 
   const [splitModalVisible, setSplitModalVisible] = useState(false);
   const [splitSaving, setSplitSaving] = useState(false);
@@ -199,6 +236,7 @@ const TransactionsScreen = () => {
 
   const selectedCategory = categories.find((item) => item.id === selectedCategoryId);
   const selectedGroup = groups.find((item) => item.id === selectedGroupId);
+  const selectedManualGroup = manualGroups.find((item) => item.id === selectedManualGroupId);
   const selectedRefundExpense = refundCandidates.find((item) => item.id === selectedRefundExpenseId) || null;
 
   const fetchGroups = useCallback(async () => {
@@ -220,6 +258,15 @@ const TransactionsScreen = () => {
     }
   }, []);
 
+  const fetchManualGroups = useCallback(async () => {
+    try {
+      const list = await ApiService.getManualTransactionGroups();
+      setManualGroups(list || []);
+    } catch {
+      setManualGroups([]);
+    }
+  }, []);
+
   const openGroupsManager = () => {
     navigation.navigate('More', { screen: 'Groups' });
   };
@@ -235,11 +282,12 @@ const TransactionsScreen = () => {
       end_date: useRouteDateOverride ? params.endDate : dateFilter.endDate,
       category_id: selectedCategoryId,
       group_id: selectedGroupId,
+      manual_group_id: selectedManualGroupId,
       type: selectedType === 'all' ? undefined : selectedType,
       limit: PAGE_SIZE,
       offset,
     };
-  }, [monthOptions, params.endDate, params.startDate, selectedCategoryId, selectedGroupId, selectedMonth, selectedRange, selectedType, useRouteDateOverride]);
+  }, [monthOptions, params.endDate, params.startDate, selectedCategoryId, selectedGroupId, selectedManualGroupId, selectedMonth, selectedRange, selectedType, useRouteDateOverride]);
 
   const fetchTransactions = useCallback(async (showLoader = true) => {
     try {
@@ -312,6 +360,7 @@ const TransactionsScreen = () => {
     setDraftRange(selectedRange);
     setDraftType(selectedType);
     setDraftGroupId(selectedGroupId);
+    setDraftManualGroupId(selectedManualGroupId);
     setFilterModalVisible(true);
   };
 
@@ -320,6 +369,7 @@ const TransactionsScreen = () => {
     setSelectedRange(draftRange);
     setSelectedType(draftType);
     setSelectedGroupId(draftGroupId);
+    setSelectedManualGroupId(draftManualGroupId);
     setUseRouteDateOverride(false);
     setFilterModalVisible(false);
   };
@@ -329,6 +379,7 @@ const TransactionsScreen = () => {
     setDraftRange('30d');
     setDraftType('all');
     setDraftGroupId(undefined);
+    setDraftManualGroupId(undefined);
   };
 
   const selectedMonthLabel = selectedMonth === 'all'
@@ -347,8 +398,34 @@ const TransactionsScreen = () => {
   }, [fetchGroups]);
 
   useEffect(() => {
+    fetchManualGroups();
+  }, [fetchManualGroups]);
+
+  useEffect(() => {
     fetchTransactions(true);
   }, [fetchTransactions]);
+
+  useEffect(() => {
+    if (params.initialMonthKey === 'current') {
+      setSelectedMonth(getCurrentMonthKey());
+    }
+    if (params.type) {
+      setSelectedType(params.type);
+    }
+    if (typeof params.categoryId === 'number') {
+      setSelectedCategoryId(params.categoryId);
+    }
+    if (typeof params.groupId === 'number') {
+      setSelectedGroupId(params.groupId);
+    }
+    if (typeof params.manualGroupId === 'number') {
+      setSelectedManualGroupId(params.manualGroupId);
+    }
+
+    if (params.startDate || params.endDate) {
+      setUseRouteDateOverride(true);
+    }
+  }, [params.categoryId, params.endDate, params.groupId, params.initialMonthKey, params.manualGroupId, params.startDate, params.type]);
 
   useFocusEffect(
     useCallback(() => {
@@ -402,6 +479,76 @@ const TransactionsScreen = () => {
   const closeTxnDetails = () => {
     setDetailModalVisible(false);
     setDetailTxn(null);
+  };
+
+  const openManualGroupModal = async (txn: Transaction) => {
+    setDetailTxn(txn);
+    setDetailModalVisible(false);
+    setManualGroupSelection((txn.manual_groups || []).map((group) => group.id));
+    setManualGroupCreateText('');
+    setManualGroupModalVisible(true);
+
+    await fetchManualGroups();
+  };
+
+  const closeManualGroupModal = () => {
+    setManualGroupModalVisible(false);
+    setManualGroupSelection([]);
+    setManualGroupCreateText('');
+  };
+
+  const toggleManualGroupSelection = (groupId: number) => {
+    setManualGroupSelection((prev) => (
+      prev.includes(groupId)
+        ? prev.filter((id) => id !== groupId)
+        : [...prev, groupId]
+    ));
+  };
+
+  const createManualGroupFromModal = async () => {
+    const name = manualGroupCreateText.trim();
+    if (!name) {
+      Alert.alert('Validation', 'Enter a group name.');
+      return;
+    }
+
+    try {
+      setManualGroupCreating(true);
+      const created = await ApiService.createManualTransactionGroup({ name });
+      await fetchManualGroups();
+      setManualGroupSelection((prev) => (prev.includes(created.id) ? prev : [...prev, created.id]));
+      setManualGroupCreateText('');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to create manual group');
+    } finally {
+      setManualGroupCreating(false);
+    }
+  };
+
+  const saveManualGroupSelection = async () => {
+    if (!detailTxn) return;
+
+    try {
+      setManualGroupSaving(true);
+      const response = await ApiService.updateTransactionManualGroups(detailTxn.id, manualGroupSelection);
+      const groupsForTxn = response.manual_groups || [];
+
+      setTransactions((prev) => prev.map((txn) => (
+        txn.id === detailTxn.id
+          ? {
+              ...txn,
+              manual_groups: groupsForTxn,
+            }
+          : txn
+      )));
+
+      setDetailTxn((prev) => (prev ? { ...prev, manual_groups: groupsForTxn } : prev));
+      closeManualGroupModal();
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to save manual groups');
+    } finally {
+      setManualGroupSaving(false);
+    }
   };
 
   const openEditNameModal = (txn: Transaction) => {
@@ -727,6 +874,9 @@ const TransactionsScreen = () => {
               <View style={[styles.filterSummaryBadge, { borderColor: colors.border, backgroundColor: colors.background }]}>
                 <Text style={[styles.filterSummaryBadgeText, { color: colors.textSecondary }]}>{selectedGroup?.name || 'All groups'}</Text>
               </View>
+              <View style={[styles.filterSummaryBadge, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <Text style={[styles.filterSummaryBadgeText, { color: colors.textSecondary }]}>{selectedManualGroup?.name || 'All trip/event groups'}</Text>
+              </View>
             </View>
             <Text style={[styles.filterHintText, { color: colors.textSecondary }]}>Month and group are applied together (AND).</Text>
           </View>
@@ -761,6 +911,7 @@ const TransactionsScreen = () => {
                 setUseRouteDateOverride(false);
                 setSelectedCategoryId(undefined);
                 setSelectedGroupId(undefined);
+                setSelectedManualGroupId(undefined);
                 setSelectedMonth('all');
                 setSelectedRange('30d');
                 setSelectedType('all');
@@ -773,6 +924,12 @@ const TransactionsScreen = () => {
           {selectedGroup ? (
             <View style={[styles.groupInfoRow, { borderColor: colors.border, backgroundColor: colors.card }]}> 
               <Text style={[styles.groupInfoText, { color: colors.textSecondary }]}>Group: {selectedGroup.name}</Text>
+            </View>
+          ) : null}
+
+          {selectedManualGroup ? (
+            <View style={[styles.groupInfoRow, { borderColor: colors.border, backgroundColor: colors.card }]}> 
+              <Text style={[styles.groupInfoText, { color: colors.textSecondary }]}>Trip/Event Group: {selectedManualGroup.name}</Text>
             </View>
           ) : null}
 
@@ -805,6 +962,11 @@ const TransactionsScreen = () => {
                     {txn.has_split ? (
                       <View style={[styles.miniTag, { borderColor: colors.border, backgroundColor: colors.background }]}>
                         <Text style={[styles.miniTagText, { color: colors.textSecondary }]}>Split</Text>
+                      </View>
+                    ) : null}
+                    {(txn.manual_groups || []).length > 0 ? (
+                      <View style={[styles.miniTag, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                        <Text style={[styles.miniTagText, { color: colors.textSecondary }]}>{(txn.manual_groups || []).length} group{(txn.manual_groups || []).length > 1 ? 's' : ''}</Text>
                       </View>
                     ) : null}
                     {Number(txn.refund_allocated_out || 0) > 0 ? (
@@ -899,6 +1061,15 @@ const TransactionsScreen = () => {
                   <Text style={[styles.detailValue, { color: colors.text }]}>{formatTxnSource(detailTxn.source)}</Text>
                 </View>
 
+                <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Trip/Event Groups</Text>
+                  <Text style={[styles.detailValue, { color: colors.text }]}>
+                    {(detailTxn.manual_groups || []).length > 0
+                      ? (detailTxn.manual_groups || []).map((group) => group.name).join(', ')
+                      : 'Not linked'}
+                  </Text>
+                </View>
+
                 {detailTxn.has_split ? (
                   <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
                     <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Split</Text>
@@ -927,6 +1098,13 @@ const TransactionsScreen = () => {
                 ) : null}
 
                 <View style={styles.detailActionsRow}>
+                  <TouchableOpacity
+                    style={[styles.detailActionBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
+                    onPress={() => openManualGroupModal(detailTxn)}
+                  >
+                    <Text style={[styles.detailActionText, { color: colors.text }]}>Link Group</Text>
+                  </TouchableOpacity>
+
                   <TouchableOpacity
                     style={[styles.detailActionBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
                     onPress={() => openEditNameModal(detailTxn)}
@@ -1051,6 +1229,35 @@ const TransactionsScreen = () => {
                   onPress={() => setDraftMonth(month.key)}
                 >
                   <Text style={[styles.filterChipText, { color: draftMonth === month.key ? (isDark ? '#000' : '#fff') : colors.textSecondary }]}>{month.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <View style={styles.modalGroupHeader}>
+              <Text style={[styles.modalSectionTitle, { color: colors.textSecondary }]}>Trip/Event Group</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
+              <TouchableOpacity
+                style={[
+                  styles.filterChip,
+                  { borderColor: colors.border, backgroundColor: colors.background },
+                  draftManualGroupId === undefined && { backgroundColor: colors.primary, borderColor: colors.primary },
+                ]}
+                onPress={() => setDraftManualGroupId(undefined)}
+              >
+                <Text style={[styles.filterChipText, { color: draftManualGroupId === undefined ? (isDark ? '#000' : '#fff') : colors.textSecondary }]}>All trip/event groups</Text>
+              </TouchableOpacity>
+              {manualGroups.map((group) => (
+                <TouchableOpacity
+                  key={group.id}
+                  style={[
+                    styles.filterChip,
+                    { borderColor: colors.border, backgroundColor: colors.background },
+                    draftManualGroupId === group.id && { backgroundColor: group.color || colors.primary, borderColor: group.color || colors.primary },
+                  ]}
+                  onPress={() => setDraftManualGroupId(group.id)}
+                >
+                  <Text style={[styles.filterChipText, { color: draftManualGroupId === group.id ? (isDark ? '#000' : '#fff') : colors.textSecondary }]}>{group.name}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -1307,6 +1514,96 @@ const TransactionsScreen = () => {
                 disabled={refundSaving}
               >
                 <Text style={[styles.modalPrimaryBtnText, { color: isDark ? '#000' : '#fff' }]}>{refundSaving ? 'Saving...' : 'Save Allocation'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={manualGroupModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeManualGroupModal}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Link Trip/Event Groups</Text>
+              <TouchableOpacity onPress={closeManualGroupModal} disabled={manualGroupSaving || manualGroupCreating}>
+                <Text style={[styles.modalClose, { color: colors.textSecondary }]}>Close</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.modalHint, { color: colors.textSecondary }]}>One transaction can belong to multiple groups.</Text>
+
+            <View style={styles.manualCreateRow}>
+              <TextInput
+                style={[styles.manualCreateInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+                placeholder="Create group (Trip Goa, Wedding, Event)"
+                placeholderTextColor={colors.textSecondary}
+                value={manualGroupCreateText}
+                editable={!manualGroupSaving && !manualGroupCreating}
+                onChangeText={setManualGroupCreateText}
+              />
+              <TouchableOpacity
+                style={[styles.manualCreateBtn, { backgroundColor: colors.primary, opacity: manualGroupCreating ? 0.7 : 1 }]}
+                onPress={createManualGroupFromModal}
+                disabled={manualGroupSaving || manualGroupCreating}
+              >
+                <Text style={[styles.manualCreateBtnText, { color: isDark ? '#000' : '#fff' }]}>{manualGroupCreating ? '...' : 'Add'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.editorScroll} showsVerticalScrollIndicator={false}>
+              {manualGroups.map((group) => {
+                const active = manualGroupSelection.includes(group.id);
+                return (
+                  <TouchableOpacity
+                    key={group.id}
+                    style={[
+                      styles.manualGroupPickRow,
+                      { borderColor: colors.border, backgroundColor: colors.background },
+                      active && { borderColor: group.color || colors.primary },
+                    ]}
+                    onPress={() => toggleManualGroupSelection(group.id)}
+                    disabled={manualGroupSaving || manualGroupCreating}
+                  >
+                    <View style={styles.manualGroupPickLeft}>
+                      <View style={[styles.manualGroupDot, { backgroundColor: group.color || colors.primary }]} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.manualGroupPickTitle, { color: colors.text }]} numberOfLines={1}>{group.name}</Text>
+                        <Text style={[styles.manualGroupPickSub, { color: colors.textSecondary }]}>{group.transaction_count || 0} tx</Text>
+                      </View>
+                    </View>
+                    <Ionicons
+                      name={active ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={20}
+                      color={active ? (group.color || colors.primary) : colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
+
+              {manualGroups.length === 0 ? (
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No manual groups yet. Create one above.</Text>
+              ) : null}
+            </ScrollView>
+
+            <View style={styles.modalActionsRow}>
+              <TouchableOpacity
+                style={[styles.modalSecondaryBtn, { borderColor: colors.border }]}
+                onPress={closeManualGroupModal}
+                disabled={manualGroupSaving || manualGroupCreating}
+              >
+                <Text style={[styles.modalSecondaryBtnText, { color: colors.textSecondary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalPrimaryBtn, { backgroundColor: colors.primary, opacity: manualGroupSaving ? 0.7 : 1 }]}
+                onPress={saveManualGroupSelection}
+                disabled={manualGroupSaving || manualGroupCreating}
+              >
+                <Text style={[styles.modalPrimaryBtnText, { color: isDark ? '#000' : '#fff' }]}>{manualGroupSaving ? 'Saving...' : 'Save Groups'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1580,10 +1877,11 @@ const styles = StyleSheet.create({
   detailActionsRow: {
     marginTop: 12,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   detailActionBtn: {
-    flex: 1,
+    minWidth: '31%',
     borderWidth: 1,
     borderRadius: 10,
     paddingVertical: 10,
@@ -1645,6 +1943,51 @@ const styles = StyleSheet.create({
   expensePickTitle: { fontSize: 13, fontWeight: '700' },
   expensePickSub: { fontSize: 11, marginTop: 2 },
   expensePickAmt: { fontSize: 12, fontWeight: '700' },
+  manualCreateRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  manualCreateInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  manualCreateBtn: {
+    minWidth: 64,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  manualCreateBtnText: { fontSize: 12, fontWeight: '700' },
+  manualGroupPickRow: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  manualGroupPickLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  manualGroupDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  manualGroupPickTitle: { fontSize: 13, fontWeight: '700' },
+  manualGroupPickSub: { fontSize: 11, marginTop: 2 },
   divider: { height: 1, marginLeft: 16 },
   emptyText: { textAlign: 'center', fontSize: 13, paddingVertical: 24 },
 });

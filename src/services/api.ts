@@ -15,6 +15,7 @@ import {
   Category,
   TrustedContact,
   TransactionGroup,
+  ManualTransactionGroup,
   StatementPasswordPayload,
   StatementPasswordResponse,
   StatementUploadResult,
@@ -201,6 +202,7 @@ class ApiService {
     account_id?: number;
     category_id?: number;
     group_id?: number;
+    manual_group_id?: number;
     type?: string;
     limit?: number;
     offset?: number;
@@ -267,6 +269,82 @@ class ApiService {
     if (!response.data.success || !response.data.data) {
       throw new Error(response.data.error || 'Failed to create preset groups');
     }
+    return response.data.data;
+  }
+
+  async getManualTransactionGroups(): Promise<ManualTransactionGroup[]> {
+    const response = await this.api.get<ApiResponse<ManualTransactionGroup[]>>('/manual-groups');
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch manual groups');
+    }
+    return response.data.data;
+  }
+
+  async createManualTransactionGroup(payload: {
+    name: string;
+    description?: string;
+    icon?: string;
+    color?: string;
+  }): Promise<{ id: number }> {
+    const response = await this.api.post<ApiResponse<{ id: number }>>('/manual-groups', payload);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to create manual group');
+    }
+    return response.data.data;
+  }
+
+  async updateManualTransactionGroup(groupId: number, payload: {
+    name?: string;
+    description?: string;
+    icon?: string;
+    color?: string;
+  }): Promise<{ id: number }> {
+    const response = await this.api.put<ApiResponse<{ id: number }>>(`/manual-groups/${groupId}`, payload);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to update manual group');
+    }
+    return response.data.data;
+  }
+
+  async deleteManualTransactionGroup(groupId: number): Promise<boolean> {
+    const response = await this.api.delete<ApiResponse<null>>(`/manual-groups/${groupId}`);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to delete manual group');
+    }
+    return true;
+  }
+
+  async getTransactionManualGroups(transactionId: number): Promise<{
+    transaction_id: number;
+    manual_groups: ManualTransactionGroup[];
+  }> {
+    const response = await this.api.get<ApiResponse<{
+      transaction_id: number;
+      manual_groups: ManualTransactionGroup[];
+    }>>(`/transactions/${transactionId}/manual-groups`);
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch transaction manual groups');
+    }
+
+    return response.data.data;
+  }
+
+  async updateTransactionManualGroups(transactionId: number, groupIds: number[]): Promise<{
+    transaction_id: number;
+    manual_groups: ManualTransactionGroup[];
+  }> {
+    const response = await this.api.put<ApiResponse<{
+      transaction_id: number;
+      manual_groups: ManualTransactionGroup[];
+    }>>(`/transactions/${transactionId}/manual-groups`, {
+      group_ids: groupIds,
+    });
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to save transaction manual groups');
+    }
+
     return response.data.data;
   }
 
