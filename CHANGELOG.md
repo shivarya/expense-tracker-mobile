@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.5.18] - 2026-03-25
+### Added
+- Transaction search filter in Transactions screen by keyword (merchant, description, account, bank).
+- Amount range filter in Transactions screen with Min and Max values.
+
+### Changed
+- Search and amount filters now work with existing month/date, type, category, group, and trip/event filters using AND behavior.
+- Filter summary now displays active search and amount range badges for quick visibility.
+
+### Fixed
+- Transactions summary counts now stay aligned with list results when keyword and amount filters are applied.
+
+### Google Play Notes
+- Added transaction search by keyword so you can find entries faster.
+- Added amount range filtering (Min and Max) for more precise transaction lookup.
+- Search and amount filters now work together with your existing filters.
+- Improved filter clarity with visible search and amount badges.
+
 ## [2.5.12] - 2026-03-21
 ### Added
 - Local Android production build commands: `build:production:local` and `build:production:local:no-bump`.

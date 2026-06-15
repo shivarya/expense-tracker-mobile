@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -30,10 +30,31 @@ interface StatementUploadPayload {
   mimeType?: string;
 }
 
+// Decode JWT payload without a library (works in React Native)
+function parseJwtExpiry(token: string): number | null {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const json = decodeURIComponent(
+      atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+    );
+    const payload = JSON.parse(json);
+    return payload.exp ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
 class ApiService {
   private api: AxiosInstance;
   private baseURL: string;
   private debug: boolean = false;
+
+  // Silent token refresh state
+  private isRefreshing = false;
+  private refreshQueue: Array<{ resolve: (token: string) => void; reject: (err: any) => void }> = [];
+  private logoutCallback: (() => void) | null = null;
 
   private extractApiError(error: any, fallbackMessage: string): string {
     const responseError = error?.response?.data?.error;
@@ -125,7 +146,7 @@ class ApiService {
         }
         return response;
       },
-      (error: AxiosError) => {
+      async (error: AxiosError) => {
         const cfg = (error.config || {}) as any;
         const method = cfg.method?.toUpperCase();
         const url = cfg.url;
@@ -133,16 +154,105 @@ class ApiService {
         if (this.debug) {
           console.debug('[API ← error]', { method, url, status, message: error.message, response: safeStringify(error.response?.data, 800) });
         }
-        if (error.response?.status === 401) {
-          // Handle unauthorized - clear token
-          AsyncStorage.removeItem('auth_token');
+
+        if (status === 401) {
+          // Never retry auth endpoints or already-retried requests
+          if (cfg._isRetry || url?.includes('/auth/')) {
+            await this.clearAuthAndLogout();
+            return Promise.reject(error);
+          }
+
+          // Queue concurrent requests while a refresh is in progress
+          if (this.isRefreshing) {
+            return new Promise<string>((resolve, reject) => {
+              this.refreshQueue.push({ resolve, reject });
+            }).then(newToken => {
+              cfg.headers = cfg.headers || {};
+              cfg.headers.Authorization = `Bearer ${newToken}`;
+              return this.api(cfg);
+            }).catch(() => Promise.reject(error));
+          }
+
+          cfg._isRetry = true;
+          this.isRefreshing = true;
+
+          try {
+            const newToken = await this.silentRefreshToken();
+            // Unblock queued requests
+            this.refreshQueue.forEach(q => q.resolve(newToken));
+            this.refreshQueue = [];
+            // Retry original request
+            cfg.headers = cfg.headers || {};
+            cfg.headers.Authorization = `Bearer ${newToken}`;
+            return this.api(cfg);
+          } catch (refreshError) {
+            this.refreshQueue.forEach(q => q.reject(refreshError));
+            this.refreshQueue = [];
+            await this.clearAuthAndLogout();
+            return Promise.reject(error);
+          } finally {
+            this.isRefreshing = false;
+          }
         }
+
         return Promise.reject(error);
       }
     );
 
     // expose runtime toggle (useful from dev console)
     (this as any).setDebug = (v: boolean) => { this.debug = !!v; return this; };
+  }
+
+  /** Register a callback that fires when silent refresh fails and the user must log in again. */
+  setLogoutCallback(fn: () => void) {
+    this.logoutCallback = fn;
+  }
+
+  /** Decode the stored JWT and return ms-since-epoch expiry, or null if unreadable. */
+  async getTokenExpiry(): Promise<number | null> {
+    const token = await AsyncStorage.getItem('auth_token');
+    if (!token) return null;
+    return parseJwtExpiry(token);
+  }
+
+  /** Attempt silent Google re-auth and exchange for a fresh server JWT. */
+  private async silentRefreshToken(): Promise<string> {
+    const googleSigninModule = require('@react-native-google-signin/google-signin');
+    const GoogleSignin = googleSigninModule?.GoogleSignin;
+    if (!GoogleSignin) throw new Error('GoogleSignin module unavailable');
+
+    const Constants = require('expo-constants').default;
+    const extra = Constants.expoConfig?.extra || {};
+    GoogleSignin.configure({
+      webClientId: extra.googleClientId || '',
+      offlineAccess: false,
+    });
+
+    console.log('[ApiService] Attempting silent token refresh...');
+    await GoogleSignin.signInSilently();
+    const tokens = await GoogleSignin.getTokens();
+
+    if (!tokens.idToken) throw new Error('No ID token returned from silent sign-in');
+
+    const response = await axios.post(`${this.baseURL}/auth/google`, { id_token: tokens.idToken });
+    if (!response.data.success || !response.data.data?.token) {
+      throw new Error('Server token exchange failed');
+    }
+
+    const newToken: string = response.data.data.token;
+    await AsyncStorage.setItem('auth_token', newToken);
+    if (response.data.data.user) {
+      await AsyncStorage.setItem('user_data', JSON.stringify(response.data.data.user));
+    }
+    console.log('[ApiService] Token refreshed silently ✓');
+    return newToken;
+  }
+
+  /** Clear local auth state and fire the logout callback so the UI navigates to login. */
+  private async clearAuthAndLogout() {
+    await AsyncStorage.removeItem('auth_token');
+    await AsyncStorage.removeItem('user_data');
+    this.logoutCallback?.();
   }
 
   // Dashboard
@@ -204,6 +314,9 @@ class ApiService {
     group_id?: number;
     manual_group_id?: number;
     type?: string;
+    keyword?: string;
+    min_amount?: number;
+    max_amount?: number;
     limit?: number;
     offset?: number;
   }): Promise<{ transactions: Transaction[]; summary: any }> {

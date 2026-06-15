@@ -31,6 +31,27 @@ export const formatCurrency = (value: number, decimals: number = 2): string => {
 };
 
 /**
+ * Format an original (foreign) currency amount for display alongside the INR value.
+ * Uses a plain number with grouping (no Indian lakh grouping) plus the ISO code,
+ * e.g. formatOriginalCurrency(30, 'MYR') => "MYR 30.00".
+ * Returns null when there is nothing foreign to show.
+ */
+export const formatOriginalCurrency = (
+  value: number | string | null | undefined,
+  code: string | null | undefined,
+  decimals: number = 2,
+): string | null => {
+  if (value === null || value === undefined || !code) return null;
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (!isFinite(num)) return null;
+  const formatted = num.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+  return `${code.toUpperCase()} ${formatted}`;
+};
+
+/**
  * Format compact currency (show K, L, Cr for thousands, lakhs, crores)
  * @param value - Amount to format
  * @returns Formatted string like "₹1.2L" or "₹5.3Cr"

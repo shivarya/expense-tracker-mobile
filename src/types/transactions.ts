@@ -27,6 +27,12 @@ export interface Transaction {
   category_id: number;
   transaction_type: 'debit' | 'credit' | 'transfer';
   amount: number;
+  /** Currency of `amount` — always 'INR' (home currency). */
+  currency?: string;
+  /** Foreign-currency figure for foreign transactions (e.g. 30.00). */
+  original_amount?: number | string | null;
+  /** ISO code of the original currency (e.g. 'MYR'); null/undefined = domestic INR. */
+  original_currency?: string | null;
   merchant?: string;
   description?: string;
   transaction_date: string;

@@ -25,7 +25,7 @@ import {
   RefundAllocation,
 } from '../types/transactions';
 import ApiService from '../services/api';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatOriginalCurrency } from '../utils/format';
 import CategoryPickerModal from '../components/CategoryPickerModal';
 
 type DateRangeKey = 'all' | '7d' | '30d' | '90d';
@@ -170,6 +170,26 @@ const parseAmountInput = (value: string): number => {
   return Math.round(parsed * 100) / 100;
 };
 
+const isValidFilterAmountInput = (value: string): boolean => {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+
+  const normalized = trimmed.replace(/,/g, '');
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) && parsed >= 0;
+};
+
+const parseOptionalFilterAmount = (value: string): number | undefined => {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  const normalized = trimmed.replace(/,/g, '');
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed < 0) return undefined;
+
+  return Math.round(parsed * 100) / 100;
+};
+
 const PAGE_SIZE = 50;
 
 const TransactionsScreen = () => {
@@ -197,6 +217,9 @@ const TransactionsScreen = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(params.categoryId);
   const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>(params.groupId);
   const [selectedManualGroupId, setSelectedManualGroupId] = useState<number | undefined>(params.manualGroupId);
+  const [searchKeyword, setSearchKeyword] = useState<string>('');
+  const [minAmount, setMinAmount] = useState<number | undefined>(undefined);
+  const [maxAmount, setMaxAmount] = useState<number | undefined>(undefined);
   const [useRouteDateOverride, setUseRouteDateOverride] = useState(Boolean(params.startDate || params.endDate));
 
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -205,6 +228,9 @@ const TransactionsScreen = () => {
   const [draftType, setDraftType] = useState<TxnType>(selectedType);
   const [draftGroupId, setDraftGroupId] = useState<number | undefined>(selectedGroupId);
   const [draftManualGroupId, setDraftManualGroupId] = useState<number | undefined>(selectedManualGroupId);
+  const [draftSearchKeyword, setDraftSearchKeyword] = useState<string>('');
+  const [draftMinAmountText, setDraftMinAmountText] = useState<string>('');
+  const [draftMaxAmountText, setDraftMaxAmountText] = useState<string>('');
 
   const [filterCategoryPickerVisible, setFilterCategoryPickerVisible] = useState(false);
   const [editCategoryPickerVisible, setEditCategoryPickerVisible] = useState(false);
@@ -284,10 +310,13 @@ const TransactionsScreen = () => {
       group_id: selectedGroupId,
       manual_group_id: selectedManualGroupId,
       type: selectedType === 'all' ? undefined : selectedType,
+      keyword: searchKeyword || undefined,
+      min_amount: minAmount,
+      max_amount: maxAmount,
       limit: PAGE_SIZE,
       offset,
     };
-  }, [monthOptions, params.endDate, params.startDate, selectedCategoryId, selectedGroupId, selectedManualGroupId, selectedMonth, selectedRange, selectedType, useRouteDateOverride]);
+  }, [maxAmount, minAmount, monthOptions, params.endDate, params.startDate, searchKeyword, selectedCategoryId, selectedGroupId, selectedManualGroupId, selectedMonth, selectedRange, selectedType, useRouteDateOverride]);
 
   const fetchTransactions = useCallback(async (showLoader = true) => {
     try {
@@ -361,15 +390,34 @@ const TransactionsScreen = () => {
     setDraftType(selectedType);
     setDraftGroupId(selectedGroupId);
     setDraftManualGroupId(selectedManualGroupId);
+    setDraftSearchKeyword(searchKeyword);
+    setDraftMinAmountText(minAmount != null ? String(minAmount) : '');
+    setDraftMaxAmountText(maxAmount != null ? String(maxAmount) : '');
     setFilterModalVisible(true);
   };
 
   const applyFilters = () => {
+    if (!isValidFilterAmountInput(draftMinAmountText) || !isValidFilterAmountInput(draftMaxAmountText)) {
+      Alert.alert('Validation', 'Enter valid amount values.');
+      return;
+    }
+
+    const parsedMinAmount = parseOptionalFilterAmount(draftMinAmountText);
+    const parsedMaxAmount = parseOptionalFilterAmount(draftMaxAmountText);
+
+    if (parsedMinAmount !== undefined && parsedMaxAmount !== undefined && parsedMinAmount > parsedMaxAmount) {
+      Alert.alert('Validation', 'Min amount cannot be greater than max amount.');
+      return;
+    }
+
     setSelectedMonth(draftMonth);
     setSelectedRange(draftRange);
     setSelectedType(draftType);
     setSelectedGroupId(draftGroupId);
     setSelectedManualGroupId(draftManualGroupId);
+    setSearchKeyword(draftSearchKeyword.trim());
+    setMinAmount(parsedMinAmount);
+    setMaxAmount(parsedMaxAmount);
     setUseRouteDateOverride(false);
     setFilterModalVisible(false);
   };
@@ -380,12 +428,25 @@ const TransactionsScreen = () => {
     setDraftType('all');
     setDraftGroupId(undefined);
     setDraftManualGroupId(undefined);
+    setDraftSearchKeyword('');
+    setDraftMinAmountText('');
+    setDraftMaxAmountText('');
   };
 
   const selectedMonthLabel = selectedMonth === 'all'
     ? (selectedRange === 'all' ? 'All dates' : `Last ${selectedRange}`)
     : (monthOptions.find((item) => item.key === selectedMonth)?.label || 'Month');
   const selectedTypeLabel = selectedType === 'all' ? 'All types' : selectedType[0].toUpperCase() + selectedType.slice(1);
+  const selectedSearchLabel = searchKeyword ? `Search: ${searchKeyword}` : null;
+  const selectedAmountLabel = useMemo(() => {
+    if (minAmount === undefined && maxAmount === undefined) {
+      return null;
+    }
+
+    const minText = minAmount !== undefined ? `₹${minAmount.toLocaleString('en-IN')}` : 'Any';
+    const maxText = maxAmount !== undefined ? `₹${maxAmount.toLocaleString('en-IN')}` : 'Any';
+    return `Amount: ${minText} - ${maxText}`;
+  }, [maxAmount, minAmount]);
 
   useEffect(() => {
     // Categories already loaded by DataContext on login; refresh once on mount only
@@ -877,6 +938,16 @@ const TransactionsScreen = () => {
               <View style={[styles.filterSummaryBadge, { borderColor: colors.border, backgroundColor: colors.background }]}>
                 <Text style={[styles.filterSummaryBadgeText, { color: colors.textSecondary }]}>{selectedManualGroup?.name || 'All trip/event groups'}</Text>
               </View>
+              {selectedSearchLabel ? (
+                <View style={[styles.filterSummaryBadge, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                  <Text style={[styles.filterSummaryBadgeText, { color: colors.textSecondary }]} numberOfLines={1}>{selectedSearchLabel}</Text>
+                </View>
+              ) : null}
+              {selectedAmountLabel ? (
+                <View style={[styles.filterSummaryBadge, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                  <Text style={[styles.filterSummaryBadgeText, { color: colors.textSecondary }]} numberOfLines={1}>{selectedAmountLabel}</Text>
+                </View>
+              ) : null}
             </View>
             <Text style={[styles.filterHintText, { color: colors.textSecondary }]}>Month and group are applied together (AND).</Text>
           </View>
@@ -915,6 +986,12 @@ const TransactionsScreen = () => {
                 setSelectedMonth('all');
                 setSelectedRange('30d');
                 setSelectedType('all');
+                setSearchKeyword('');
+                setMinAmount(undefined);
+                setMaxAmount(undefined);
+                setDraftSearchKeyword('');
+                setDraftMinAmountText('');
+                setDraftMaxAmountText('');
               }}
             >
               <Text style={[styles.clearBtnText, { color: colors.textSecondary }]}>Clear</Text>
@@ -1037,11 +1114,24 @@ const TransactionsScreen = () => {
                 <Text style={[styles.detailAmount, { color: detailTxn.transaction_type === 'credit' ? colors.success : colors.error }]}>
                   {detailTxn.transaction_type === 'credit' ? '+' : '-'}{formatCurrency(Number(detailTxn.amount), 0)}
                 </Text>
+                {formatOriginalCurrency(detailTxn.original_amount, detailTxn.original_currency) ? (
+                  <Text style={[styles.detailForeign, { color: colors.textSecondary }]}>
+                    Originally {formatOriginalCurrency(detailTxn.original_amount, detailTxn.original_currency)}
+                  </Text>
+                ) : null}
 
                 <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
                   <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Type</Text>
                   <Text style={[styles.detailValue, { color: colors.text }]}>{detailTxn.transaction_type}</Text>
                 </View>
+                {formatOriginalCurrency(detailTxn.original_amount, detailTxn.original_currency) ? (
+                  <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Original amount</Text>
+                    <Text style={[styles.detailValue, { color: colors.text }]}>
+                      {formatOriginalCurrency(detailTxn.original_amount, detailTxn.original_currency)}
+                    </Text>
+                  </View>
+                ) : null}
                 <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
                   <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Date & time</Text>
                   <Text style={[styles.detailValue, { color: colors.text }]}>{formatTxnDateTimeLocal(detailTxn.transaction_date)}</Text>
@@ -1282,6 +1372,39 @@ const TransactionsScreen = () => {
                   </Text>
                 </TouchableOpacity>
               ))}
+            </View>
+
+            <Text style={[styles.modalSectionTitle, { color: colors.textSecondary }]}>Search</Text>
+            <TextInput
+              style={[styles.modalFilterInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+              placeholder="Merchant, description, account, bank"
+              placeholderTextColor={colors.textSecondary}
+              value={draftSearchKeyword}
+              onChangeText={setDraftSearchKeyword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+            />
+
+            <Text style={[styles.modalSectionTitle, { color: colors.textSecondary }]}>Amount Range</Text>
+            <View style={styles.amountFilterRow}>
+              <TextInput
+                style={[styles.amountFilterInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+                placeholder="Min"
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="decimal-pad"
+                value={draftMinAmountText}
+                onChangeText={setDraftMinAmountText}
+              />
+              <Text style={[styles.amountFilterDash, { color: colors.textSecondary }]}>to</Text>
+              <TextInput
+                style={[styles.amountFilterInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+                placeholder="Max"
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="decimal-pad"
+                value={draftMaxAmountText}
+                onChangeText={setDraftMaxAmountText}
+              />
             </View>
 
             <Text style={[styles.modalSectionTitle, { color: colors.textSecondary }]}>Type</Text>
@@ -1777,6 +1900,32 @@ const styles = StyleSheet.create({
   modalClose: { fontSize: 13, fontWeight: '600' },
   modalHint: { fontSize: 11, marginTop: 6, marginBottom: 10 },
   modalSectionTitle: { fontSize: 12, fontWeight: '700', marginBottom: 8 },
+  modalFilterInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  amountFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  amountFilterInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    fontSize: 13,
+  },
+  amountFilterDash: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   modalGroupHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1864,6 +2013,7 @@ const styles = StyleSheet.create({
   detailWrap: { marginTop: 12 },
   detailTitle: { fontSize: 16, fontWeight: '700' },
   detailAmount: { fontSize: 18, fontWeight: '700', marginTop: 4, marginBottom: 12 },
+  detailForeign: { fontSize: 13, fontWeight: '500', marginTop: -8, marginBottom: 12 },
   detailRow: {
     paddingVertical: 10,
     borderBottomWidth: 1,

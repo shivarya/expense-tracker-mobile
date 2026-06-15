@@ -29,8 +29,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Check if user is logged in on app start
+  // Check if user is logged in on app start + register logout callback
   useEffect(() => {
+    // Register logout callback so ApiService can trigger logout when silent refresh fails
+    import('../services/api').then(({ default: ApiService }) => {
+      ApiService.setLogoutCallback(() => {
+        setUser(null);
+        clearWidgetSession();
+      });
+    });
     checkAuth();
   }, []);
 
@@ -40,6 +47,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userData = await AsyncStorage.getItem('user_data');
 
       if (token && userData) {
+        // Proactively refresh if token has expired or expires within the next 5 minutes
+        const { default: ApiService } = await import('../services/api');
+        const expiry = await ApiService.getTokenExpiry();
+        const fiveMinutes = 5 * 60 * 1000;
+        const isExpiredOrSoon = expiry !== null && expiry < Date.now() + fiveMinutes;
+
+        if (isExpiredOrSoon) {
+          console.log('[AuthContext] Token expired or expiring soon — attempting silent refresh');
+          try {
+            // Trigger a lightweight authenticated request; the interceptor will refresh the token
+            await ApiService.getDashboard();
+          } catch {
+            // If refresh fails the interceptor fires the logout callback — nothing more to do here
+            return;
+          }
+        }
+
         setUser(JSON.parse(userData));
         await syncWidgetSession();
       } else {
