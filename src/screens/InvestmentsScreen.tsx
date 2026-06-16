@@ -510,7 +510,6 @@ const InvestmentsScreen = () => {
               yAxisTextStyle={{ color: colors.textSecondary, fontSize: 10 }}
               xAxisLabelTextStyle={{ color: colors.textSecondary, fontSize: 10, fontWeight: '600' }}
               xAxisColor={colors.border}
-              yAxisThickness={0}
               noOfSections={4}
               maxValue={Math.max(...data.map(d => d.value)) * 1.2 || 10}
               formatYLabel={(label: string) => formatYAxisLabel(label)}
@@ -578,7 +577,6 @@ const InvestmentsScreen = () => {
               yAxisTextStyle={{ color: colors.textSecondary, fontSize: 10 }}
               xAxisLabelTextStyle={{ color: colors.textSecondary, fontSize: 10, fontWeight: '600' }}
               xAxisColor={colors.border}
-              yAxisThickness={0}
               noOfSections={4}
               maxValue={Math.max(...data.map(d => d.value)) * 1.2 || 10}
               formatYLabel={(label: string) => formatYAxisLabel(label)}

@@ -18,7 +18,10 @@ import {
   ManualTransactionGroup,
   StatementPasswordPayload,
   StatementPasswordResponse,
+  StatementPasswordCandidate,
   StatementUploadResult,
+  GmailSyncRange,
+  GmailSyncJob,
 } from '../types/transactions';
 
 interface StatementUploadPayload {
@@ -718,6 +721,89 @@ class ApiService {
     return response.data;
   }
 
+  // Gmail integration — connect read-only Gmail so the server can auto-fetch statements
+  async connectGmail(): Promise<{ connected: boolean; email?: string }> {
+    const googleSigninModule = require('@react-native-google-signin/google-signin');
+    const GoogleSignin = googleSigninModule?.GoogleSignin;
+    if (!GoogleSignin) throw new Error('GoogleSignin module unavailable');
+
+    const Constants = require('expo-constants').default;
+    const extra = Constants.expoConfig?.extra || {};
+    const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+
+    // offlineAccess + forceCodeForRefreshToken => a one-time serverAuthCode the
+    // backend exchanges for a refresh token.
+    GoogleSignin.configure({
+      webClientId: extra.googleClientId || '',
+      offlineAccess: true,
+      forceCodeForRefreshToken: true,
+      scopes: ['openid', 'profile', 'email', GMAIL_SCOPE],
+    });
+
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+    const readCode = (res: any): string | undefined =>
+      res?.data?.serverAuthCode ?? res?.serverAuthCode;
+
+    let serverAuthCode: string | undefined;
+    try {
+      serverAuthCode = readCode(await GoogleSignin.signIn());
+    } catch (e) {
+      // If already signed in without the scope, fall through to addScopes below.
+    }
+
+    // Incremental authorization: ensure the gmail scope + a fresh code.
+    if (!serverAuthCode && typeof GoogleSignin.addScopes === 'function') {
+      serverAuthCode = readCode(await GoogleSignin.addScopes({ scopes: [GMAIL_SCOPE] }));
+    }
+
+    if (!serverAuthCode) {
+      throw new Error('Could not obtain Google authorization code for Gmail access');
+    }
+
+    const response = await this.api.post('/gmail/connect', { server_auth_code: serverAuthCode });
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to connect Gmail');
+    }
+    return response.data.data;
+  }
+
+  async getGmailStatus(): Promise<{ connected: boolean; authorized_at: string | null }> {
+    const response = await this.api.get('/gmail/status');
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to get Gmail status');
+    }
+    return response.data.data;
+  }
+
+  async disconnectGmail(): Promise<boolean> {
+    const response = await this.api.post('/gmail/disconnect', {});
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to disconnect Gmail');
+    }
+    return true;
+  }
+
+  // Queue a server-side Gmail fetch for the given range; drained by the cron worker.
+  async triggerGmailSync(
+    range: GmailSyncRange,
+    types?: string[]
+  ): Promise<{ job_id: number; status: string; already_queued: boolean }> {
+    const response = await this.api.post('/gmail/sync', { range, ...(types ? { types } : {}) });
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to queue Gmail sync');
+    }
+    return response.data.data;
+  }
+
+  async getGmailJobs(): Promise<GmailSyncJob[]> {
+    const response = await this.api.get('/gmail/jobs');
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to load Gmail sync jobs');
+    }
+    return response.data.data.jobs ?? [];
+  }
+
   // SMS Sync
   async parseSMS(
     messages: Array<{ sender: string; body: string; date: string }>,
@@ -761,6 +847,42 @@ class ApiService {
     return !!response.data.data?.deleted;
   }
 
+  // Candidate password pool — a per-user list of passwords the server tries
+  // when decrypting protected statement PDFs (uploads + Gmail-fetched).
+  async getStatementPasswordCandidates(): Promise<StatementPasswordCandidate[]> {
+    const response = await this.api.get<ApiResponse<{ candidates: StatementPasswordCandidate[] }>>(
+      '/statements/password-candidates'
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to load password candidates');
+    }
+    return response.data.data.candidates ?? [];
+  }
+
+  async addStatementPasswordCandidates(
+    passwords: Array<{ password: string; label?: string }>
+  ): Promise<{ added: number; skipped_duplicates: number; invalid: number }> {
+    const response = await this.api.post<ApiResponse<{ added: number; skipped_duplicates: number; invalid: number }>>(
+      '/statements/password-candidates',
+      { passwords }
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to save password candidates');
+    }
+    return response.data.data;
+  }
+
+  async deleteStatementPasswordCandidate(payload: { id?: number; all?: boolean }): Promise<boolean> {
+    const response = await this.api.delete<ApiResponse<{ deleted: boolean | number }>>(
+      '/statements/password-candidates',
+      { data: payload }
+    );
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to delete password candidate');
+    }
+    return !!response.data.data?.deleted;
+  }
+
   async uploadStatementPdf(payload: StatementUploadPayload): Promise<StatementUploadResult> {
     const formData = new FormData();
     formData.append('bank', payload.bank);
@@ -787,14 +909,6 @@ class ApiService {
     }
 
     return response.data.data;
-  }
-
-  async login() {
-    const response = await this.api.post('/auth/login', {});
-    if (response.data.success && response.data.data.token) {
-      await AsyncStorage.setItem('auth_token', response.data.data.token);
-    }
-    return response.data;
   }
 
   // Trusted Contacts

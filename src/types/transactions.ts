@@ -174,6 +174,29 @@ export interface StatementPasswordResponse {
   stored: boolean;
 }
 
+export interface StatementPasswordCandidate {
+  id: number;
+  label: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type GmailSyncRange = 'all' | '1y' | '6m' | '2m' | '1m';
+
+export interface GmailSyncJob {
+  id: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  params: { range?: string; types?: string[] } | null;
+  progress: number;
+  processed_items: number;
+  saved_items: number;
+  skipped_items: number;
+  error_message: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
 export interface StatementUploadResult {
   upload_id: number;
   duplicate_upload: boolean;

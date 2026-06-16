@@ -172,6 +172,14 @@ const MoreScreen = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.syncButton, { backgroundColor: colors.info }]}
+          onPress={() => navigation.navigate('GmailSync')}
+        >
+          <Ionicons name="mail-outline" size={24} color={colors.background} />
+          <Text style={[styles.syncButtonText, { color: colors.background }]}>Gmail Auto-Sync</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.resetButton, { backgroundColor: colors.border }]}
           onPress={handleResyncLast30Days}
           disabled={isSyncing}

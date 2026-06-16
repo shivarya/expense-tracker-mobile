@@ -6,6 +6,7 @@ import MasterCategoriesScreen from '../screens/MasterCategoriesScreen';
 import GroupsScreen from '../screens/GroupsScreen';
 import ManualGroupsScreen from '../screens/ManualGroupsScreen';
 import StatementSyncScreen from '../screens/StatementSyncScreen';
+import GmailSyncScreen from '../screens/GmailSyncScreen';
 
 export type MoreStackParamList = {
   MoreHome: undefined;
@@ -14,6 +15,7 @@ export type MoreStackParamList = {
   Groups: undefined;
   ManualGroups: undefined;
   StatementSync: undefined;
+  GmailSync: undefined;
 };
 
 const Stack = createNativeStackNavigator<MoreStackParamList>();
@@ -50,6 +52,11 @@ const MoreStackNavigator = () => {
         name="StatementSync"
         component={StatementSyncScreen}
         options={{ title: 'Statement Sync' }}
+      />
+      <Stack.Screen
+        name="GmailSync"
+        component={GmailSyncScreen}
+        options={{ title: 'Gmail Auto-Sync' }}
       />
     </Stack.Navigator>
   );
