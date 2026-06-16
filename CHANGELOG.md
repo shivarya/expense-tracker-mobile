@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.5.19] - 2026-06-16
+### Added
+- Foreign currency support for transactions (MYR, USD, etc.). Transaction details now display the original foreign amount (e.g., "Originally MYR 30.00") when applicable.
+- FX rate caching via Frankfurter API for accurate historical conversions on transaction dates.
+
+### Fixed
+- Fixed duplicate credit-card transactions that were appearing on wrong accounts during sync.
+- Corrected SMS-parsed foreign transactions that were stored as tiny INR amounts instead of properly converted values.
+
+### Changed
+- Transaction `amount` field now always represents INR (home currency); original foreign amounts are preserved separately for historical accuracy and display.
+
+### Google Play Notes
+- Foreign currency transactions now show their original amount in transaction details (e.g., "Originally MYR 30.00").
+- Amounts and totals remain in INR for consistency. Fixed duplicate card transactions appearing on wrong accounts.
+
 ## [2.5.18] - 2026-03-25
 ### Added
 - Transaction search filter in Transactions screen by keyword (merchant, description, account, bank).
