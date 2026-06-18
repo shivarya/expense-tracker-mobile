@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 
 import api from '../services/api';
+import { parseBankSmsMessages } from '../services/smsParser';
 
 interface SMSMessage {
   _id: string;
@@ -552,7 +553,20 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
         return startedResult;
       }
 
-      const response = await api.parseSMS(formattedMessages);
+      // Free tier (premium enforced + user not subscribed) parses on-device and
+      // posts structured transactions; otherwise use the richer server AI parse.
+      // While PREMIUM_ENFORCED is off the server reports premium=true, so this
+      // stays on the existing AI path with no behavior change.
+      const billing = await api.getBillingStatus().catch(() => null);
+      const useOnDevice = !!(billing?.enforced && !billing?.premium);
+
+      let response;
+      if (useOnDevice) {
+        const structured = parseBankSmsMessages(formattedMessages);
+        response = await api.parseStructuredSMS(structured);
+      } else {
+        response = await api.parseSMS(formattedMessages);
+      }
       const payload = response?.data?.data || {};
       const skippedHighConfidence = toNumber(payload.skipped_high_confidence ?? payload.skipped_duplicates);
 

@@ -22,6 +22,7 @@ import {
   StatementUploadResult,
   GmailSyncRange,
   GmailSyncJob,
+  BillingStatus,
 } from '../types/transactions';
 
 interface StatementUploadPayload {
@@ -306,6 +307,23 @@ class ApiService {
   async getLongTermFunds() {
     const response = await this.api.get('/investments/long-term');
     return response.data.data;
+  }
+
+  // Manual entry (FD / PF / NPS / PPF) — replaces the dropped portal scrapers
+  async createFixedDeposit(payload: Record<string, any>): Promise<number> {
+    const response = await this.api.post('/investments/fixed-deposits', payload);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to save fixed deposit');
+    }
+    return response.data.data?.id;
+  }
+
+  async createLongTermFund(payload: Record<string, any>): Promise<number> {
+    const response = await this.api.post('/investments/long-term', payload);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to save long-term fund');
+    }
+    return response.data.data?.id;
   }
 
   // Transactions
@@ -804,6 +822,26 @@ class ApiService {
     return response.data.data.jobs ?? [];
   }
 
+  // Billing / premium
+  async getBillingStatus(): Promise<BillingStatus> {
+    const response = await this.api.get('/billing/status');
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to get billing status');
+    }
+    return response.data.data;
+  }
+
+  async verifyPurchase(productId: string, purchaseToken: string): Promise<BillingStatus> {
+    const response = await this.api.post('/billing/verify', {
+      product_id: productId,
+      purchase_token: purchaseToken,
+    });
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to verify purchase');
+    }
+    return response.data.data;
+  }
+
   // SMS Sync
   async parseSMS(
     messages: Array<{ sender: string; body: string; date: string }>,
@@ -825,6 +863,11 @@ class ApiService {
 
   async parseSMSWebhook(message: { sender: string; body: string; date: string }) {
     return await this.api.post('/parse/sms/webhook', message);
+  }
+
+  // Free-tier path: app-parsed (on-device) transactions; server categorizes + dedupes without AI.
+  async parseStructuredSMS(transactions: any[]) {
+    return await this.api.post('/parse/sms/structured', { transactions });
   }
 
   async saveStatementPassword(payload: StatementPasswordPayload): Promise<StatementPasswordResponse> {

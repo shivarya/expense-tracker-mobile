@@ -181,6 +181,15 @@ export interface StatementPasswordCandidate {
   updated_at: string;
 }
 
+export interface BillingStatus {
+  premium: boolean;
+  enforced: boolean;
+  product_id: string | null;
+  status: string | null;
+  expiry_time: string | null;
+  auto_renewing: boolean | null;
+}
+
 export type GmailSyncRange = 'all' | '1y' | '6m' | '2m' | '1m';
 
 export interface GmailSyncJob {

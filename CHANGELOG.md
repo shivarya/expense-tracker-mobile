@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.6.0] - 2026-06-17
+### Added
+- **Premium tier (Google Play Billing)**: new in-app subscription unlocks Gmail Auto-Sync. Paywall screen at More → Go Premium with monthly (₹99) and yearly (₹799) plans + 7-day free trial. Server verifies purchases via Google Play Developer API.
+- **Gmail Auto-Sync (premium)**: connect read-only Gmail from More → Gmail Auto-Sync and the server fetches statement emails automatically (credit cards for SBI/ICICI, CDSL eCAS for stocks + MF, NPS, CAMS mutual funds). Trigger a manual sync with a date-range selector (1M / 2M / 6M / 1Y / All) and see a full sync log with status badges + failure reasons.
+- **Statement password pool**: save a list of common PDF passwords (e.g. DOB, PAN). The server tries each when opening protected statement PDFs — no more per-card setup. Passwords are encrypted at rest (AES-256-GCM).
+- **Manual investment entry**: new "Add FD / PF / NPS" form (More → Add FD / PF / NPS) for Fixed Deposits and long-term funds (PF / NPS / PPF / Sukanya / VPF), replacing the dropped portal scrapers for distribution.
+- **On-device SMS parser (free tier)**: free accounts now parse bank SMS on-device with no server-AI cost. Premium accounts continue using server AI for higher-accuracy parsing.
+- **Account deletion page** at `/expense_tracker/delete.html` (linked from Google Play Data Safety).
+
+### Changed
+- **Google Sign-In tokens are now properly verified server-side** (signature + audience + email_verified). Previously the server only decoded the token without verifying it — this hardens the app against forged identities ahead of public distribution.
+- **AI provider is now configurable per environment** (Gemini / OpenAI / Groq / Azure) via `AI_PROVIDER` env. Categorization is **rules-first** for both SMS and statement transactions — your manual recategorizations override the AI guess automatically.
+- **Account deletion** now correctly cascades all related tables (transactions, investments, EMIs, statement uploads, password vaults, sync logs).
+- Build now ships 64-bit ABIs only (`arm64-v8a`, `x86_64`) — Play Store requires 64-bit anyway and this shrinks the AAB.
+
+### Fixed
+- Critical: `/auth/login` dev backdoor (which minted a session for a hardcoded user id) is now disabled by default and only available behind an explicit dev-only env flag.
+- Replaced `react-native-iap` with **`expo-iap`**, the Expo-supported billing library (RN-IAP 15.x needs Nitro Modules infrastructure this project doesn't have; RN-IAP 12.x doesn't compile against RN 0.81).
+
+### Google Play Notes
+- New "Add FD / PF / NPS" form to track your fixed deposits and long-term funds (PF, NPS, PPF, Sukanya).
+- Statement password manager: save your common PDF passwords once and the app uses them whenever it needs to open a protected statement.
+- Faster, more reliable SMS-based transaction detection — parses on your device for free users; cloud-AI parsing available with Premium.
+- New Premium subscription unlocks Gmail Auto-Sync — connect your inbox and the app fetches credit-card, mutual-fund, and demat (CDSL) statements for you. Monthly (₹99) and yearly (₹799) plans with a 7-day free trial.
+- Security: Google sign-in tokens are now fully verified on the server.
+
 ## [2.5.19] - 2026-06-16
 ### Added
 - Foreign currency support for transactions (MYR, USD, etc.). Transaction details now display the original foreign amount (e.g., "Originally MYR 30.00") when applicable.

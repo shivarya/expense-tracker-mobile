@@ -180,6 +180,22 @@ const MoreScreen = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.syncButton, { backgroundColor: colors.info }]}
+          onPress={() => navigation.navigate('AddInvestment')}
+        >
+          <Ionicons name="add-circle-outline" size={24} color={colors.background} />
+          <Text style={[styles.syncButtonText, { color: colors.background }]}>Add FD / PF / NPS</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.syncButton, { backgroundColor: colors.primary }]}
+          onPress={() => navigation.navigate('Paywall')}
+        >
+          <Ionicons name="sparkles-outline" size={24} color={colors.background} />
+          <Text style={[styles.syncButtonText, { color: colors.background }]}>Go Premium</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.resetButton, { backgroundColor: colors.border }]}
           onPress={handleResyncLast30Days}
           disabled={isSyncing}

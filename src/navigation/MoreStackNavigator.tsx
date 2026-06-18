@@ -7,6 +7,8 @@ import GroupsScreen from '../screens/GroupsScreen';
 import ManualGroupsScreen from '../screens/ManualGroupsScreen';
 import StatementSyncScreen from '../screens/StatementSyncScreen';
 import GmailSyncScreen from '../screens/GmailSyncScreen';
+import PaywallScreen from '../screens/PaywallScreen';
+import AddInvestmentScreen from '../screens/AddInvestmentScreen';
 
 export type MoreStackParamList = {
   MoreHome: undefined;
@@ -16,6 +18,8 @@ export type MoreStackParamList = {
   ManualGroups: undefined;
   StatementSync: undefined;
   GmailSync: undefined;
+  Paywall: undefined;
+  AddInvestment: undefined;
 };
 
 const Stack = createNativeStackNavigator<MoreStackParamList>();
@@ -57,6 +61,16 @@ const MoreStackNavigator = () => {
         name="GmailSync"
         component={GmailSyncScreen}
         options={{ title: 'Gmail Auto-Sync' }}
+      />
+      <Stack.Screen
+        name="Paywall"
+        component={PaywallScreen}
+        options={{ title: 'Premium' }}
+      />
+      <Stack.Screen
+        name="AddInvestment"
+        component={AddInvestmentScreen}
+        options={{ title: 'Add FD / PF / NPS' }}
       />
     </Stack.Navigator>
   );

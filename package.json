@@ -1,6 +1,6 @@
 {
   "name": "expense-tracker-mobile",
-  "version": "2.5.19",
+  "version": "2.6.0",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
@@ -29,7 +29,9 @@
     "date-fns": "^3.0.0",
     "expo": "~54.0.0",
     "expo-constants": "~18.0.0",
+    "expo-dev-client": "~6.0.21",
     "expo-document-picker": "~14.0.7",
+    "expo-iap": "^4.3.1",
     "expo-notifications": "^0.32.16",
     "expo-status-bar": "~3.0.0",
     "react": "19.1.0",

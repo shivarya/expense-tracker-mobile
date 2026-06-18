@@ -11,10 +11,11 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import ApiService from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { useData } from '../contexts/DataContext';
-import { GmailSyncJob, GmailSyncRange, StatementPasswordCandidate } from '../types/transactions';
+import { BillingStatus, GmailSyncJob, GmailSyncRange, StatementPasswordCandidate } from '../types/transactions';
 
 const RANGES: { value: GmailSyncRange; label: string }[] = [
   { value: '1m', label: '1 Month' },
@@ -42,11 +43,13 @@ const formatDateTime = (value: string | null): string => {
 const GmailSyncScreen = () => {
   const { colors } = useTheme();
   const { refreshAll } = useData();
+  const navigation = useNavigation<any>();
 
   const [gmailConnected, setGmailConnected] = useState(false);
   const [authorizedAt, setAuthorizedAt] = useState<string | null>(null);
   const [jobs, setJobs] = useState<GmailSyncJob[]>([]);
   const [candidates, setCandidates] = useState<StatementPasswordCandidate[]>([]);
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
 
   const [selectedRange, setSelectedRange] = useState<GmailSyncRange>('6m');
   const [newPassword, setNewPassword] = useState('');
@@ -73,15 +76,17 @@ const GmailSyncScreen = () => {
 
   const loadAll = useCallback(async () => {
     try {
-      const [status, jobList, candidateList] = await Promise.all([
+      const [status, jobList, candidateList, billingStatus] = await Promise.all([
         ApiService.getGmailStatus(),
         ApiService.getGmailJobs(),
         ApiService.getStatementPasswordCandidates(),
+        ApiService.getBillingStatus().catch(() => null),
       ]);
       setGmailConnected(!!status.connected);
       setAuthorizedAt(status.authorized_at ?? null);
       setJobs(jobList);
       setCandidates(candidateList);
+      if (billingStatus) setBilling(billingStatus);
     } catch (error: any) {
       // Non-fatal: surface once, keep the screen usable.
       console.warn('[GmailSync] load failed:', getApiErrorMessage(error, 'load failed'));
@@ -281,22 +286,39 @@ const GmailSyncScreen = () => {
           })}
         </View>
 
-        <TouchableOpacity
-          style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: isSyncing || !gmailConnected ? 0.6 : 1 }]}
-          onPress={handleSync}
-          disabled={isSyncing || !gmailConnected}
-        >
-          {isSyncing ? (
-            <ActivityIndicator color={colors.background} />
-          ) : (
-            <>
-              <Ionicons name="sync-outline" size={18} color={colors.background} />
-              <Text style={[styles.primaryButtonText, { color: colors.background }]}>Sync Now</Text>
-            </>
-          )}
-        </TouchableOpacity>
-        {!gmailConnected && (
-          <Text style={[styles.hint, { color: colors.textSecondary }]}>Connect Gmail first to enable syncing.</Text>
+        {billing?.enforced && !billing?.premium ? (
+          <>
+            <TouchableOpacity
+              style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+              onPress={() => navigation.navigate('Paywall')}
+            >
+              <Ionicons name="sparkles-outline" size={18} color={colors.background} />
+              <Text style={[styles.primaryButtonText, { color: colors.background }]}>Upgrade to Premium</Text>
+            </TouchableOpacity>
+            <Text style={[styles.hint, { color: colors.textSecondary }]}>
+              Gmail Auto-Sync is a premium feature.
+            </Text>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: isSyncing || !gmailConnected ? 0.6 : 1 }]}
+              onPress={handleSync}
+              disabled={isSyncing || !gmailConnected}
+            >
+              {isSyncing ? (
+                <ActivityIndicator color={colors.background} />
+              ) : (
+                <>
+                  <Ionicons name="sync-outline" size={18} color={colors.background} />
+                  <Text style={[styles.primaryButtonText, { color: colors.background }]}>Sync Now</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            {!gmailConnected && (
+              <Text style={[styles.hint, { color: colors.textSecondary }]}>Connect Gmail first to enable syncing.</Text>
+            )}
+          </>
         )}
       </View>
 
