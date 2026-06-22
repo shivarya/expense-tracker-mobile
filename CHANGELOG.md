@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.6.2] - 2026-06-21
+### Fixed
+- **Crash on launch in 2.6.0/2.6.1 release**: `ReferenceError: Property 'FormData' doesn't exist` under the React Native New Architecture. axios 1.13+ references `FormData` at module-load time to detect environment; Hermes was evaluating that BEFORE React Native's `InitializeCore` had set up the polyfill. Fixed by importing `react-native/Libraries/Core/InitializeCore` at the very top of `index.js` so all RN runtime globals (FormData, Blob, URL, fetch, etc.) exist before any other module loads.
+
+### Google Play Notes
+- Fixes a crash on launch.
+
+## [2.6.1] - 2026-06-18
+### Changed
+- **Build hardening (no functional change for users).** `app.config.js` now resolves `.env` relative to `__dirname` instead of `process.cwd()` (Gradle's `export:embed` runs from a different cwd, which silently skipped dotenv on local builds), and the production defaults for `API_URL_PROD` / `GOOGLE_CLIENT_ID` are now the real values so a local build can never ship a placeholder if env loading fails. EAS cloud builds were always fine.
+
+### Google Play Notes
+- Internal release; no user-visible changes.
+
 ## [2.6.0] - 2026-06-17
 ### Added
 - **Premium tier (Google Play Billing)**: new in-app subscription unlocks Gmail Auto-Sync. Paywall screen at More → Go Premium with monthly (₹99) and yearly (₹799) plans + 7-day free trial. Server verifies purchases via Google Play Developer API.

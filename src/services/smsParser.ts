@@ -13,6 +13,7 @@
 export interface ParsedSmsTransaction {
   bank: string;
   account_number: string;
+  account_type: 'credit_card' | 'savings';
   transaction_type: 'debit' | 'credit';
   amount: number;
   currency: string;
@@ -22,6 +23,8 @@ export interface ParsedSmsTransaction {
   reference_number: string | null;
   source: 'sms';
 }
+
+const CREDIT_CARD_RE = /credit\s*card|cr\.?\s*card|creditcard|card\s+ending|on (?:your )?card|card\s+x+\d|using .*card/i;
 
 interface RawSms {
   sender: string;
@@ -106,6 +109,7 @@ export function parseBankSms(sms: RawSms): ParsedSmsTransaction | null {
   return {
     bank: detectBank(sms.sender || '', body),
     account_number: parseAccountLast4(body),
+    account_type: CREDIT_CARD_RE.test(body) ? 'credit_card' : 'savings',
     transaction_type: type,
     amount,
     currency: 'INR',

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Expense Tracker",
     "slug": "expense-tracker-mobile",
-    "version": "2.6.0",
+    "version": "2.6.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "expensetracker",
@@ -24,7 +24,7 @@
         "backgroundColor": "#FFFFFF"
       },
       "package": "dev.shivarya.expensetracker",
-      "versionCode": 31,
+      "versionCode": 33,
       "permissions": [
         "READ_SMS",
         "RECEIVE_SMS",
@@ -44,7 +44,7 @@
       "apiUrl": "https://shivarya.dev/expense_tracker",
       "googleClientId": "473762682694-temn315hduj5tmvprin69srkrr5kdqpl.apps.googleusercontent.com",
       "apiUrlDev": "http://10.0.2.2:8000",
-      "apiUrlProd": "https://your-production-url.com/api",
+      "apiUrlProd": "https://shivarya.dev/expense_tracker",
       "enableApiDebug": true,
       "eas": {
         "projectId": "1497933e-c12f-40b0-9cfa-8f2570b53fd0"
