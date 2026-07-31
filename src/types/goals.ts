@@ -28,6 +28,8 @@ export interface GoalProgress {
   assumed_annual_return_percent?: number;
   assumed_monthly_contribution?: number;
   projected_value_at_target_date?: number;
+  is_scoped?: boolean;
+  additional_monthly_contribution_needed?: number;
   // spend_cap
   days_in_month?: number;
   days_elapsed?: number;

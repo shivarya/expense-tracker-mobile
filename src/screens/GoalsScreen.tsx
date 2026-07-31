@@ -334,11 +334,20 @@ const GoalsScreen = () => {
         {progressBar(p.progress_percent, colors.success)}
         <Text style={[styles.progressCaption, { color: colors.textSecondary }]}>
           {formatCompactCurrency(p.current_amount || 0)} of {formatCompactCurrency(p.target_amount || 0)}
+          {p.is_scoped ? ' (scoped)' : ''}
         </Text>
         {goal.target_date && (
-          <Text style={[styles.calloutSubText, { color: onTrack ? colors.success : colors.warning }]}>
-            Projected by {formatDateLong(goal.target_date)}: {formatCompactCurrency(p.projected_value_at_target_date || 0)}
-          </Text>
+          <View style={[styles.callout, { backgroundColor: onTrack ? colors.success + '1A' : colors.warning + '1A' }]}>
+            <Text style={[styles.calloutText, { color: onTrack ? colors.success : colors.warning }]}>
+              Projected by {formatDateLong(goal.target_date)}: {formatCompactCurrency(p.projected_value_at_target_date || 0)}
+            </Text>
+            {!onTrack && !!p.required_monthly_contribution && (
+              <Text style={[styles.calloutSubText, { color: colors.textSecondary }]}>
+                To hit your target: invest {formatCurrency(p.required_monthly_contribution, 0)}/mo total
+                {p.assumed_monthly_contribution ? ` (${formatCurrency(p.additional_monthly_contribution_needed || 0, 0)}/mo more than your current ${formatCurrency(p.assumed_monthly_contribution, 0)})` : ''}.
+              </Text>
+            )}
+          </View>
         )}
       </>
     );
