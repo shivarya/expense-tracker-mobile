@@ -6,7 +6,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DataProvider } from './src/contexts/DataContext';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { AuthProvider } from './src/contexts/AuthContext';
+import { AppLockProvider, useAppLock } from './src/contexts/AppLockContext';
 import RootNavigator from './src/navigation/RootNavigator';
+import AppLockOverlay from './src/components/AppLockOverlay';
 
 const parseNumberParam = (value: string | null): number | undefined => {
   if (!value) return undefined;
@@ -85,12 +87,16 @@ const linking: LinkingOptions<any> = {
 
 function AppContent() {
   const { isDark } = useTheme();
-  
+  const { locked, covered } = useAppLock();
+
   return (
-    <NavigationContainer theme={isDark ? DarkTheme : DefaultTheme} linking={linking}>
-      <RootNavigator />
-      <StatusBar style={isDark ? 'light' : 'dark'} />
-    </NavigationContainer>
+    <>
+      <NavigationContainer theme={isDark ? DarkTheme : DefaultTheme} linking={linking}>
+        <RootNavigator />
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+      </NavigationContainer>
+      {(locked || covered) && <AppLockOverlay />}
+    </>
   );
 }
 
@@ -99,9 +105,11 @@ export default function App() {
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
-          <DataProvider>
-            <AppContent />
-          </DataProvider>
+          <AppLockProvider>
+            <DataProvider>
+              <AppContent />
+            </DataProvider>
+          </AppLockProvider>
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>

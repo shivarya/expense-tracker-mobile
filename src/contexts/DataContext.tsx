@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { AppState } from 'react-native';
 import { DashboardData } from '../types/dashboard';
 import { Investments } from '../types/investments';
-import { BankAccount, Category } from '../types/transactions';
+import { BankAccount, Category, EMI } from '../types/transactions';
 import ApiService from '../services/api';
 import { requestWidgetSummaryRefresh } from '../services/widget';
 import { useAuth } from './AuthContext';
@@ -13,12 +13,14 @@ interface DataContextType {
   investments: Investments | null;
   accounts: BankAccount[];
   categories: Category[];
+  emis: EMI[];
   loading: boolean;
   error: string | null;
   refreshDashboard: () => Promise<void>;
   refreshInvestments: () => Promise<void>;
   refreshAccounts: () => Promise<void>;
   refreshCategories: () => Promise<void>;
+  refreshEmis: () => Promise<void>;
   refreshAll: () => Promise<void>;
 }
 
@@ -32,6 +34,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [investments, setInvestments] = useState<Investments | null>(null);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [emis, setEmis] = useState<EMI[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,14 +97,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  const refreshEmis = useCallback(async () => {
+    try {
+      setError(null);
+      const data = await ApiService.getEMIs();
+      setEmis(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch EMIs');
+      console.error('EMIs error:', err);
+    }
+  }, []);
+
   const refreshAll = useCallback(async () => {
     await Promise.all([
       refreshDashboard(),
       refreshInvestments(),
       refreshAccounts(),
       refreshCategories(),
+      refreshEmis(),
     ]);
-  }, [refreshDashboard, refreshInvestments, refreshAccounts, refreshCategories]);
+  }, [refreshDashboard, refreshInvestments, refreshAccounts, refreshCategories, refreshEmis]);
 
   const tryDailyAutoSync = useCallback(async (reason: 'startup' | 'foreground') => {
     if (!user || autoSyncInProgressRef.current) {
@@ -155,12 +170,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         investments,
         accounts,
         categories,
+        emis,
         loading,
         error,
         refreshDashboard,
         refreshInvestments,
         refreshAccounts,
         refreshCategories,
+        refreshEmis,
         refreshAll,
       }}
     >

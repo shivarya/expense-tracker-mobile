@@ -926,6 +926,18 @@ class ApiService {
     return !!response.data.data?.deleted;
   }
 
+  // Reveal the plaintext of one of the user's own saved candidate passwords.
+  async revealStatementPasswordCandidate(id: number): Promise<string> {
+    const response = await this.api.post<ApiResponse<{ id: number; password: string }>>(
+      '/statements/password-candidates/reveal',
+      { id }
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to reveal password');
+    }
+    return response.data.data.password;
+  }
+
   async uploadStatementPdf(payload: StatementUploadPayload): Promise<StatementUploadResult> {
     const formData = new FormData();
     formData.append('bank', payload.bank);

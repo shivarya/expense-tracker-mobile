@@ -25,7 +25,7 @@ const BANK_COLORS: Record<string, string> = {
 const getBankColor = (bank: string) => BANK_COLORS[bank.toLowerCase()] || '#333333';
 
 const AccountsScreen = () => {
-  const { accounts, loading, refreshAccounts } = useData();
+  const { accounts, emis, loading, refreshAccounts } = useData();
   const { colors, isDark } = useTheme();
 
   if (loading && accounts.length === 0) {
@@ -37,7 +37,10 @@ const AccountsScreen = () => {
   }
 
   const creditCards = accounts.filter(a => a.account_type === 'credit_card');
-  const savings = accounts.filter(a => a.account_type !== 'credit_card');
+  // 'loan' accounts are synthetic FK anchors for home loans (see emis below) —
+  // they carry no meaningful balance and are rendered in their own section instead.
+  const savings = accounts.filter(a => a.account_type !== 'credit_card' && a.account_type !== 'loan');
+  const homeLoans = emis.filter(e => e.loan_type === 'home' && e.status === 'active');
 
   return (
     <ScrollView
@@ -92,6 +95,59 @@ const AccountsScreen = () => {
                   }]} />
                 </View>
                 <Text style={styles.usageLabel}>{(usedPct * 100).toFixed(0)}% utilised</Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Home Loans */}
+      {homeLoans.length > 0 && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>HOME LOANS</Text>
+          {homeLoans.map((loan) => {
+            const remaining = Number(loan.remaining_principal ?? loan.principal_amount);
+            const paidPct = loan.principal_amount > 0
+              ? 1 - (remaining / loan.principal_amount)
+              : 0;
+            return (
+              <View key={loan.id} style={[styles.loanCard, {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+              }]}>
+                <View style={styles.loanHeaderRow}>
+                  <View style={[styles.bankIcon, { backgroundColor: getBankColor(loan.bank) }]}>
+                    <Text style={styles.bankIconText}>{loan.bank.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.bankName, { color: colors.text }]}>{loan.loan_name}</Text>
+                    <Text style={[styles.bankMeta, { color: colors.textSecondary }]}>
+                      {loan.bank.toUpperCase()} • {loan.interest_rate}% ROI
+                    </Text>
+                  </View>
+                </View>
+                <Text style={[styles.loanBalance, { color: colors.error }]}>
+                  {formatCurrency(remaining)} remaining
+                </Text>
+                <View style={[styles.usageBarBg, { backgroundColor: colors.border }]}>
+                  <View style={[styles.usageBarFill, {
+                    width: (Math.max(0, Math.min(1, paidPct)) * 100) + '%' as any,
+                    backgroundColor: colors.success,
+                  }]} />
+                </View>
+                <View style={styles.loanStatsRow}>
+                  <Text style={[styles.loanMeta, { color: colors.textSecondary }]}>
+                    {(paidPct * 100).toFixed(0)}% paid off
+                  </Text>
+                  <Text style={[styles.loanMeta, { color: colors.textSecondary }]}>
+                    EMI {formatCurrency(loan.emi_amount)}
+                  </Text>
+                </View>
+                {loan.next_payment_date && (
+                  <Text style={[styles.loanNextDue, { color: colors.warning }]}>
+                    Next due {new Date(loan.next_payment_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </Text>
+                )}
               </View>
             );
           })}
@@ -304,6 +360,40 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  // Home loans
+  loanCard: {
+    marginHorizontal: 16,
+    marginBottom: 14,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  loanHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 14,
+  },
+  loanBalance: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    marginBottom: 10,
+  },
+  loanStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  loanMeta: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  loanNextDue: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 8,
   },
   emptyContainer: {
     flex: 1,

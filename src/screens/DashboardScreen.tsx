@@ -22,7 +22,7 @@ import CategoryPickerModal from '../components/CategoryPickerModal';
 const CHART_COLORS = ['#FF4757', '#2B7BE5', '#FFA502', '#00C48C', '#9C27B0', '#FF6B6B'];
 
 const DashboardScreen = () => {
-  const { dashboard, loading, error, refreshDashboard } = useData();
+  const { dashboard, accounts, emis, loading, error, refreshDashboard } = useData();
   const { colors } = useTheme();
   const { user } = useAuth();
   const navigation = useNavigation<any>();
@@ -146,6 +146,18 @@ const DashboardScreen = () => {
   const gainLossPct = Number(portfolio?.overall_gain_loss || 0);
   const isGain = gainLossAmt >= 0;
 
+  const savingsBalance = accounts
+    .filter(a => a.account_type === 'savings' || a.account_type === 'current')
+    .reduce((sum, a) => sum + Number(a.balance || 0), 0);
+  const creditCardDebt = accounts
+    .filter(a => a.account_type === 'credit_card')
+    .reduce((sum, a) => sum + (Number(a.credit_limit || 0) - Number(a.available_credit || 0)), 0);
+  const homeLoanDebt = emis
+    .filter(e => e.loan_type === 'home' && e.status === 'active')
+    .reduce((sum, e) => sum + Number(e.remaining_principal ?? e.principal_amount), 0);
+  const netWorth = totalCurrent + savingsBalance - creditCardDebt - homeLoanDebt;
+  const hasLiabilities = creditCardDebt > 0 || homeLoanDebt > 0;
+
   const pieData = (portfolio?.summary || []).map((item: any, i: number) => ({
     value: Number(item.current_value),
     label: item.category,
@@ -175,9 +187,34 @@ const DashboardScreen = () => {
         </Text>
       </View>
 
-      {/* Net Worth Hero Card */}
+      {/* Net Worth (true figure: portfolio + cash − credit card debt − loan balances) */}
+      {hasLiabilities && (
+        <View style={[styles.heroCard, { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 10 }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>NET WORTH</Text>
+          <Text style={[styles.heroValue, { color: colors.text }]}>
+            {formatCompactCurrency(netWorth)}
+          </Text>
+          <View style={styles.heroMeta}>
+            <View style={styles.heroMetaItem}>
+              <Text style={[styles.heroMetaLabel, { color: colors.textSecondary }]}>ASSETS</Text>
+              <Text style={[styles.heroMetaValue, { color: colors.success }]}>
+                {formatCompactCurrency(totalCurrent + savingsBalance)}
+              </Text>
+            </View>
+            <View style={[styles.heroMetaDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.heroMetaItem}>
+              <Text style={[styles.heroMetaLabel, { color: colors.textSecondary }]}>LIABILITIES</Text>
+              <Text style={[styles.heroMetaValue, { color: colors.error }]}>
+                −{formatCompactCurrency(creditCardDebt + homeLoanDebt)}
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Portfolio Value Hero Card (investments only — stocks + MF + FD + long-term) */}
       <View style={[styles.heroCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>NET WORTH</Text>
+        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>PORTFOLIO VALUE</Text>
         <Text style={[styles.heroValue, { color: colors.text }]}>
           {formatCompactCurrency(totalCurrent)}
         </Text>

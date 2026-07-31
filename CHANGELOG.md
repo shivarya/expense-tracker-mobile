@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.6.5] - 2026-06-24
+### Added
+- **View saved statement passwords**: in Gmail Auto-Sync → Statement Passwords, each saved password is now masked (••••) with an eye icon to reveal it on demand (your own account only). Makes it easy to confirm which passwords are stored.
+
+### Google Play Notes
+- You can now tap the eye icon to reveal a saved statement password and confirm what's stored.
+
+## [2.6.4] - 2026-06-24
+### Added
+- **App Lock (biometric unlock)**: optional Face / Fingerprint unlock for the app, since it holds your financial data. Turn it on in More → Security. It asks for biometrics when you open the app and when you return after being away for more than ~30 seconds (quick hops to copy an OTP won't re-prompt). Uses your device's own biometrics — no biometric data is ever stored or sent. Falls back to your device PIN/pattern if biometrics fail, and a "Log out" option avoids any lock-out.
+- **Privacy hardening (with App Lock on)**: your balances are hidden behind the lock screen in the app switcher, and screenshots are blocked while App Lock is enabled.
+
+### Google Play Notes
+- New App Lock: secure the app with your fingerprint or face unlock from More → Security. While it's on, your data is hidden in the app switcher and screenshots are blocked.
+
+## [2.6.3] - 2026-06-23
+### Fixed
+- **On-device SMS parser (free tier)**: credit-card transactions parsed locally were sent without an `account_type` hint, so the server defaulted them to `savings`. If that card's number already existed as a `credit_card` account, the insert hit the `unique_account` key and the whole sync batch failed with a 500. `smsParser.ts` now detects credit-card language in the SMS body ("credit card", "card ending", "using ... card", etc.) and tags `account_type: 'credit_card'` so it's classified correctly the first time.
+- Server-side: `getOrCreateBankAccount` now recovers from that same duplicate-account collision instead of failing the entire SMS sync (covers both the on-device and AI parsing paths; already deployed to the API in the previous release without requiring an app update).
+
+### Google Play Notes
+- Fixes an issue where SMS sync could fail for some credit card transactions.
+
 ## [2.6.2] - 2026-06-21
 ### Fixed
 - **Crash on launch in 2.6.0/2.6.1 release**: `ReferenceError: Property 'FormData' doesn't exist` under the React Native New Architecture. axios 1.13+ references `FormData` at module-load time to detect environment; Hermes was evaluating that BEFORE React Native's `InitializeCore` had set up the polyfill. Fixed by importing `react-native/Libraries/Core/InitializeCore` at the very top of `index.js` so all RN runtime globals (FormData, Blob, URL, fetch, etc.) exist before any other module loads.

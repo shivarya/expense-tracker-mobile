@@ -1,6 +1,6 @@
 {
   "name": "expense-tracker-mobile",
-  "version": "2.6.2",
+  "version": "2.6.5",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
@@ -32,7 +32,9 @@
     "expo-dev-client": "~6.0.21",
     "expo-document-picker": "~14.0.7",
     "expo-iap": "^4.3.1",
+    "expo-local-authentication": "~17.0.8",
     "expo-notifications": "^0.32.16",
+    "expo-screen-capture": "~8.0.9",
     "expo-status-bar": "~3.0.0",
     "react": "19.1.0",
     "react-native": "0.81.5",

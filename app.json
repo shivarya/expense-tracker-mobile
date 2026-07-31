@@ -2,7 +2,7 @@
   "expo": {
     "name": "Expense Tracker",
     "slug": "expense-tracker-mobile",
-    "version": "2.6.2",
+    "version": "2.6.5",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "expensetracker",
@@ -24,7 +24,7 @@
         "backgroundColor": "#FFFFFF"
       },
       "package": "dev.shivarya.expensetracker",
-      "versionCode": 33,
+      "versionCode": 36,
       "permissions": [
         "READ_SMS",
         "RECEIVE_SMS",
@@ -38,7 +38,13 @@
     },
     "plugins": [
       "@react-native-google-signin/google-signin",
-      "expo-iap"
+      "expo-iap",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Unlock Expense Tracker with Face ID."
+        }
+      ]
     ],
     "extra": {
       "apiUrl": "https://shivarya.dev/expense_tracker",

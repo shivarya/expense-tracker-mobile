@@ -1,7 +1,7 @@
 export interface BankAccount {
   id: number;
   bank: string;
-  account_type: 'savings' | 'current' | 'credit_card';
+  account_type: 'savings' | 'current' | 'credit_card' | 'loan';
   account_number: string;
   account_name: string;
   balance: number;
@@ -152,6 +152,7 @@ export interface EMI {
   tenure_months: number;
   emi_amount: number;
   remaining_months: number;
+  remaining_principal?: number;
   total_installments?: number;
   paid_installments?: number;
   next_payment_date: string;

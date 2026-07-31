@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,6 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useSMSSync } from '../hooks/useSMSSync';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useAppLock } from '../contexts/AppLockContext';
 import ApiService from '../services/api';
 import { MoreStackParamList } from '../navigation/MoreStackNavigator';
 
@@ -18,6 +19,7 @@ const MoreScreen = () => {
   const { syncSMS, isSyncing, lastSyncTime, lastAutoSyncResult, isRealtimeBridgeAvailable } = useSMSSync();
   const { refreshAll } = useData();
   const { logout } = useAuth();
+  const { lockEnabled, biometricAvailable, biometricLabel, setLockEnabled } = useAppLock();
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
@@ -71,6 +73,25 @@ const MoreScreen = () => {
 
   const handleThemeChange = (value: 'light' | 'dark' | 'auto') => {
     setTheme(value);
+  };
+
+  const handleToggleAppLock = async (value: boolean) => {
+    if (value && !biometricAvailable) {
+      Alert.alert(
+        'Biometrics not set up',
+        'Add a fingerprint or face unlock in your device settings, then turn this on.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ]
+      );
+      return;
+    }
+
+    const enabled = await setLockEnabled(value);
+    if (value && !enabled) {
+      Alert.alert('Not enabled', 'Biometric verification was cancelled or failed. App Lock stays off.');
+    }
   };
 
   const handleSyncSMS = async () => {
@@ -237,6 +258,37 @@ const MoreScreen = () => {
             Automatically reads bank SMS from your phone and creates expense transactions using AI.
           </Text>
         </View>
+      </View>
+
+      {/* Security */}
+      <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Security</Text>
+
+        <View style={styles.lockRow}>
+          <View style={styles.menuLeft}>
+            <Ionicons name="lock-closed-outline" size={24} color={colors.primary} />
+            <Text style={[styles.menuLabel, { color: colors.text }]}>Require unlock</Text>
+          </View>
+          <Switch
+            value={lockEnabled}
+            onValueChange={handleToggleAppLock}
+            disabled={!biometricAvailable && !lockEnabled}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor={colors.surface}
+          />
+        </View>
+
+        {biometricAvailable ? (
+          <Text style={[styles.lockHint, { color: colors.textSecondary }]}>
+            Ask for {biometricLabel} when you open the app or return after a while. Your balances stay hidden in the app switcher and screenshots are blocked while this is on.
+          </Text>
+        ) : (
+          <TouchableOpacity onPress={() => Linking.openSettings()}>
+            <Text style={[styles.lockHint, { color: colors.textSecondary }]}>
+              No fingerprint or face unlock is set up on this device. Tap to open device settings, then turn this on.
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Theme Settings */}
@@ -417,6 +469,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
+  },
+  lockRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  lockHint: {
+    fontSize: 12,
+    lineHeight: 18,
+    paddingBottom: 16,
   },
   menuItem: {
     flexDirection: 'row',

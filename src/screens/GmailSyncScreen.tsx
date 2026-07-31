@@ -60,6 +60,8 @@ const GmailSyncScreen = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAddingPassword, setIsAddingPassword] = useState(false);
+  const [revealed, setRevealed] = useState<Record<number, string>>({});
+  const [revealingId, setRevealingId] = useState<number | null>(null);
 
   const statusColor = (status: GmailSyncJob['status']): string => {
     switch (status) {
@@ -176,6 +178,27 @@ const GmailSyncScreen = () => {
       Alert.alert('Add failed', getApiErrorMessage(error, 'Could not save password.'));
     } finally {
       setIsAddingPassword(false);
+    }
+  };
+
+  const handleToggleReveal = async (id: number) => {
+    // Already shown → hide it again.
+    if (revealed[id] !== undefined) {
+      setRevealed((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      return;
+    }
+    try {
+      setRevealingId(id);
+      const pw = await ApiService.revealStatementPasswordCandidate(id);
+      setRevealed((prev) => ({ ...prev, [id]: pw }));
+    } catch (error: any) {
+      Alert.alert('Reveal failed', getApiErrorMessage(error, 'Could not reveal password.'));
+    } finally {
+      setRevealingId(null);
     }
   };
 
@@ -366,10 +389,33 @@ const GmailSyncScreen = () => {
           candidates.map((c) => (
             <View key={c.id} style={[styles.listRow, { borderColor: colors.border }]}>
               <Ionicons name="key-outline" size={16} color={colors.textSecondary} />
-              <Text style={[styles.listRowText, { color: colors.text }]} numberOfLines={1}>
-                {c.label || 'Saved password'}
-              </Text>
-              <TouchableOpacity onPress={() => handleDeletePassword(c.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <View style={styles.listRowBody}>
+                <Text style={[styles.listRowText, { color: colors.text }]} numberOfLines={1}>
+                  {c.label || 'Saved password'}
+                </Text>
+                <Text style={[styles.listRowValue, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {revealed[c.id] !== undefined ? revealed[c.id] : '••••••••'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => handleToggleReveal(c.id)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                {revealingId === c.id ? (
+                  <ActivityIndicator size="small" color={colors.textSecondary} />
+                ) : (
+                  <Ionicons
+                    name={revealed[c.id] !== undefined ? 'eye-off-outline' : 'eye-outline'}
+                    size={18}
+                    color={colors.textSecondary}
+                  />
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleDeletePassword(c.id)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.listRowDelete}
+              >
                 <Ionicons name="trash-outline" size={18} color={colors.error} />
               </TouchableOpacity>
             </View>
@@ -459,7 +505,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  listRowText: { flex: 1, fontSize: 14 },
+  listRowBody: { flex: 1 },
+  listRowText: { fontSize: 14, fontWeight: '500' },
+  listRowValue: { fontSize: 13, marginTop: 2, letterSpacing: 1 },
+  listRowDelete: { marginLeft: 4 },
   jobCard: { borderWidth: 1, borderRadius: 10, padding: 12, gap: 6 },
   jobHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   statusBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
