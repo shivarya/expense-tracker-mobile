@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiResponse, DashboardData } from '../types/dashboard';
 import { Investments } from '../types/investments';
 import { WidgetSummary } from '../types/widget';
+import { Goal, GoalContribution } from '../types/goals';
 import {
   Transaction,
   TransactionSplitLine,
@@ -624,6 +625,71 @@ class ApiService {
 
   async updateEMI(id: number, emi: Partial<EMI>) {
     const response = await this.api.put(`/emis/${id}`, emi);
+    return response.data;
+  }
+
+  // Goals
+  async getGoals(): Promise<Goal[]> {
+    const response = await this.api.get<ApiResponse<Goal[]>>('/goals');
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch goals');
+    }
+    return response.data.data;
+  }
+
+  async getGoal(id: number): Promise<Goal> {
+    const response = await this.api.get<ApiResponse<Goal>>(`/goals/${id}`);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch goal');
+    }
+    return response.data.data;
+  }
+
+  async createGoal(goal: Partial<Goal>) {
+    const response = await this.api.post<ApiResponse<{ id: number }>>('/goals', goal);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to create goal');
+    }
+    return response.data.data;
+  }
+
+  async updateGoal(id: number, goal: Partial<Goal>) {
+    const response = await this.api.put<ApiResponse<{ id: number }>>(`/goals/${id}`, goal);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to update goal');
+    }
+    return response.data.data;
+  }
+
+  async deleteGoal(id: number) {
+    const response = await this.api.delete<ApiResponse<null>>(`/goals/${id}`);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to delete goal');
+    }
+    return response.data;
+  }
+
+  async addGoalContribution(goalId: number, payload: { amount: number; contributed_at: string; note?: string }) {
+    const response = await this.api.post<ApiResponse<{ id: number }>>(`/goals/${goalId}/contributions`, payload);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to log contribution');
+    }
+    return response.data.data;
+  }
+
+  async getGoalContributions(goalId: number): Promise<GoalContribution[]> {
+    const response = await this.api.get<ApiResponse<GoalContribution[]>>(`/goals/${goalId}/contributions`);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch contributions');
+    }
+    return response.data.data;
+  }
+
+  async deleteGoalContribution(goalId: number, contributionId: number) {
+    const response = await this.api.delete<ApiResponse<null>>(`/goals/${goalId}/contributions/${contributionId}`);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to delete contribution');
+    }
     return response.data;
   }
 

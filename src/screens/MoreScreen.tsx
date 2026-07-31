@@ -69,6 +69,7 @@ const MoreScreen = () => {
     { id: 'categories', icon: 'pricetags-outline', label: 'Categories', screen: 'Categories' },
     { id: 'groups', icon: 'layers-outline', label: 'Transaction Groups', screen: 'Groups' },
     { id: 'manual-groups', icon: 'flag-outline', label: 'Manual Groups', screen: 'ManualGroups' },
+    { id: 'goals', icon: 'trophy-outline', label: 'Goals', screen: 'Goals' },
   ];
 
   const handleThemeChange = (value: 'light' | 'dark' | 'auto') => {
