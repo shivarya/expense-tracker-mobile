@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.0] - 2026-07-31
+### Added
+- **Home loan tracking**: home loans now show up on the Accounts screen with remaining balance, a paid-off progress bar, EMI amount, ROI, and next due date. Backed by a new server-side sync pipeline that reads HDFC statement emails and tracks the balance forward automatically.
+- **Real Net Worth**: the Dashboard now shows an actual Net Worth figure (assets minus credit card debt minus home loan balances), alongside the existing investment total, now labeled "Portfolio Value".
+- **Privacy toggle for Net Worth/Portfolio Value**: both figures are hidden by default (••••••) with an eye icon to reveal them on tap — so they don't catch someone's eye if you hand over your phone.
+
+### Google Play Notes
+- Track your home loans right in the app, see a real Net Worth figure on your Dashboard, and keep both hidden behind a tap-to-reveal eye icon for privacy.
+
 ## [2.6.5] - 2026-06-24
 ### Added
 - **View saved statement passwords**: in Gmail Auto-Sync → Statement Passwords, each saved password is now masked (••••) with an eye icon to reveal it on demand (your own account only). Makes it easy to confirm which passwords are stored.
