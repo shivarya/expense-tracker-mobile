@@ -62,3 +62,27 @@ export interface GoalContribution {
   contributed_at: string;
   note?: string | null;
 }
+
+export interface MonthlyPlanAllocation {
+  goal_id: number;
+  name: string;
+  goal_type: GoalType;
+  monthly_need: number;
+  suggested_amount: number;
+  lumpsum_target?: number;
+  note: string;
+}
+
+export interface MonthlyPlan {
+  is_configured: boolean;
+  monthly_income: number | null;
+  monthly_other_commitments: number;
+  active_emi_total: number;
+  housing_loan_emi_total: number;
+  short_term_emi_total: number;
+  spend_cap_target: number;
+  total_committed: number;
+  available_surplus: number | null;
+  allocations: MonthlyPlanAllocation[];
+  leftover_to_buffer: number;
+}

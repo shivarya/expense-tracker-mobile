@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiResponse, DashboardData } from '../types/dashboard';
 import { Investments } from '../types/investments';
 import { WidgetSummary } from '../types/widget';
-import { Goal, GoalContribution } from '../types/goals';
+import { Goal, GoalContribution, MonthlyPlan } from '../types/goals';
 import {
   Transaction,
   TransactionSplitLine,
@@ -691,6 +691,22 @@ class ApiService {
       throw new Error(response.data.error || 'Failed to delete contribution');
     }
     return response.data;
+  }
+
+  async getMonthlyPlan(): Promise<MonthlyPlan> {
+    const response = await this.api.get<ApiResponse<MonthlyPlan>>('/goals/plan');
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch monthly plan');
+    }
+    return response.data.data;
+  }
+
+  async updateMonthlyPlanSettings(payload: { monthly_income?: number; monthly_other_commitments?: number }): Promise<MonthlyPlan> {
+    const response = await this.api.put<ApiResponse<MonthlyPlan>>('/goals/plan', payload);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to update monthly plan settings');
+    }
+    return response.data.data;
   }
 
   // Categories
