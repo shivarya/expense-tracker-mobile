@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useData } from '../contexts/DataContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,6 +31,11 @@ const DashboardScreen = () => {
   const [monthExpenses, setMonthExpenses] = useState<number>(0);
   const [monthCount, setMonthCount] = useState<number>(0);
   const [monthLoading, setMonthLoading] = useState(false);
+
+  // Net worth / portfolio value are hidden by default — someone glancing at
+  // the screen shouldn't see these at a glance; tap the eye to reveal.
+  const [showFinancials, setShowFinancials] = useState(false);
+  const mask = (value: string) => (showFinancials ? value : '••••••');
 
   // Category picker state
   const [categories, setCategories] = useState<Category[]>([]);
@@ -190,22 +196,27 @@ const DashboardScreen = () => {
       {/* Net Worth (true figure: portfolio + cash − credit card debt − loan balances) */}
       {hasLiabilities && (
         <View style={[styles.heroCard, { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 10 }]}>
-          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>NET WORTH</Text>
+          <View style={styles.heroLabelRow}>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>NET WORTH</Text>
+            <TouchableOpacity onPress={() => setShowFinancials(v => !v)} hitSlop={10}>
+              <Ionicons name={showFinancials ? 'eye-outline' : 'eye-off-outline'} size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
           <Text style={[styles.heroValue, { color: colors.text }]}>
-            {formatCompactCurrency(netWorth)}
+            {mask(formatCompactCurrency(netWorth))}
           </Text>
           <View style={styles.heroMeta}>
             <View style={styles.heroMetaItem}>
               <Text style={[styles.heroMetaLabel, { color: colors.textSecondary }]}>ASSETS</Text>
               <Text style={[styles.heroMetaValue, { color: colors.success }]}>
-                {formatCompactCurrency(totalCurrent + savingsBalance)}
+                {mask(formatCompactCurrency(totalCurrent + savingsBalance))}
               </Text>
             </View>
             <View style={[styles.heroMetaDivider, { backgroundColor: colors.border }]} />
             <View style={styles.heroMetaItem}>
               <Text style={[styles.heroMetaLabel, { color: colors.textSecondary }]}>LIABILITIES</Text>
               <Text style={[styles.heroMetaValue, { color: colors.error }]}>
-                −{formatCompactCurrency(creditCardDebt + homeLoanDebt)}
+                {mask('−' + formatCompactCurrency(creditCardDebt + homeLoanDebt))}
               </Text>
             </View>
           </View>
@@ -214,27 +225,32 @@ const DashboardScreen = () => {
 
       {/* Portfolio Value Hero Card (investments only — stocks + MF + FD + long-term) */}
       <View style={[styles.heroCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>PORTFOLIO VALUE</Text>
+        <View style={styles.heroLabelRow}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>PORTFOLIO VALUE</Text>
+          <TouchableOpacity onPress={() => setShowFinancials(v => !v)} hitSlop={10}>
+            <Ionicons name={showFinancials ? 'eye-outline' : 'eye-off-outline'} size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
         <Text style={[styles.heroValue, { color: colors.text }]}>
-          {formatCompactCurrency(totalCurrent)}
+          {mask(formatCompactCurrency(totalCurrent))}
         </Text>
         <View style={styles.heroMeta}>
           <View style={styles.heroMetaItem}>
             <Text style={[styles.heroMetaLabel, { color: colors.textSecondary }]}>INVESTED</Text>
-            <Text style={[styles.heroMetaValue, { color: colors.text }]}>{formatCompactCurrency(totalInvested)}</Text>
+            <Text style={[styles.heroMetaValue, { color: colors.text }]}>{mask(formatCompactCurrency(totalInvested))}</Text>
           </View>
           <View style={[styles.heroMetaDivider, { backgroundColor: colors.border }]} />
           <View style={styles.heroMetaItem}>
             <Text style={[styles.heroMetaLabel, { color: colors.textSecondary }]}>RETURNS</Text>
             <Text style={[styles.heroMetaValue, { color: isGain ? colors.success : colors.error }]}>
-              {isGain ? '+' : ''}{formatPercent(gainLossPct)}
+              {mask((isGain ? '+' : '') + formatPercent(gainLossPct))}
             </Text>
           </View>
           <View style={[styles.heroMetaDivider, { backgroundColor: colors.border }]} />
           <View style={styles.heroMetaItem}>
             <Text style={[styles.heroMetaLabel, { color: colors.textSecondary }]}>P&L</Text>
             <Text style={[styles.heroMetaValue, { color: isGain ? colors.success : colors.error }]}>
-              {isGain ? '+' : ''}{formatCompactCurrency(gainLossAmt)}
+              {mask((isGain ? '+' : '') + formatCompactCurrency(gainLossAmt))}
             </Text>
           </View>
         </View>
@@ -479,6 +495,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1.4,
     marginBottom: 6,
+  },
+  heroLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   heroValue: {
     fontSize: 42,
