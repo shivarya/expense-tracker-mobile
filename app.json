@@ -2,7 +2,7 @@
   "expo": {
     "name": "Expense Tracker",
     "slug": "expense-tracker-mobile",
-    "version": "2.7.3",
+    "version": "2.7.10",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "expensetracker",
@@ -24,7 +24,7 @@
         "backgroundColor": "#FFFFFF"
       },
       "package": "dev.shivarya.expensetracker",
-      "versionCode": 40,
+      "versionCode": 47,
       "permissions": [
         "READ_SMS",
         "RECEIVE_SMS",

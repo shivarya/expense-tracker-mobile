@@ -1,8 +1,9 @@
 import 'react-native-gesture-handler';
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer, DefaultTheme, DarkTheme, LinkingOptions, getStateFromPath } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme, LinkingOptions, getStateFromPath, createNavigationContainerRef } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Notifications from 'expo-notifications';
 import { DataProvider } from './src/contexts/DataContext';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { AuthProvider } from './src/contexts/AuthContext';
@@ -32,6 +33,14 @@ const parseWidgetQueryParams = (path: string) => {
     manualGroupId: parseNumberParam(params.get('manualGroupId')),
     startDate: params.get('startDate') || undefined,
     endDate: params.get('endDate') || undefined,
+    // Set by the native transaction notification (SmsNotifier). A raw
+    // NotificationManagerCompat notify never reaches the expo-notifications
+    // response listener below, so native taps arrive as a deep link instead.
+    focusTransactionId: parseNumberParam(params.get('focusTransactionId')),
+    focusCategoryId: parseNumberParam(params.get('focusCategoryId')),
+    focusAmount: parseNumberParam(params.get('focusAmount')),
+    focusMerchant: params.get('focusMerchant') || undefined,
+    focusDescription: params.get('focusDescription') || undefined,
   };
 };
 
@@ -85,13 +94,38 @@ const linking: LinkingOptions<any> = {
   },
 };
 
+export const navigationRef = createNavigationContainerRef<any>();
+
 function AppContent() {
   const { isDark } = useTheme();
   const { locked, covered } = useAppLock();
 
+  React.useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, any> | undefined;
+      if (!data?.transactionId || !navigationRef.isReady()) return;
+
+      navigationRef.navigate('Main', {
+        screen: 'Expenses',
+        params: {
+          screen: 'Transactions',
+          params: {
+            focusTransactionId: Number(data.transactionId),
+            focusMerchant: data.merchant ?? undefined,
+            focusAmount: data.amount !== undefined ? Number(data.amount) : undefined,
+            focusCategoryId: data.categoryId !== undefined ? Number(data.categoryId) : undefined,
+            focusDescription: data.description ?? undefined,
+          },
+        },
+      } as never);
+    });
+
+    return () => subscription.remove();
+  }, []);
+
   return (
     <>
-      <NavigationContainer theme={isDark ? DarkTheme : DefaultTheme} linking={linking}>
+      <NavigationContainer ref={navigationRef} theme={isDark ? DarkTheme : DefaultTheme} linking={linking}>
         <RootNavigator />
         <StatusBar style={isDark ? 'light' : 'dark'} />
       </NavigationContainer>

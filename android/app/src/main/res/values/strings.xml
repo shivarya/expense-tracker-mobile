@@ -1,0 +1,18 @@
+<resources>
+  <string name="app_name">Expense Tracker</string>
+  <string name="expense_widget_name">Expense Summary</string>
+  <string name="expense_widget_description">Monthly cashflow and spending trend on your home screen</string>
+  <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
+  <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
+  <string name="widget_action_refresh">Refresh</string>
+  <string name="widget_empty_value">Sync app</string>
+  <string name="widget_sign_in_value">Open app</string>
+  <string name="widget_placeholder_value">--</string>
+  <string name="widget_no_emi">No EMI due in 30 days</string>
+  <string name="widget_label_top_category">Top category</string>
+  <string name="widget_label_balance">Balance</string>
+  <string name="widget_refreshing">Refreshing...</string>
+  <string name="widget_open_app_sync">Open app to sync latest data</string>
+  <string name="widget_open_app_sign_in">Open app to sign in</string>
+  <string name="widget_updated_prefix">Updated %1$s</string>
+</resources>

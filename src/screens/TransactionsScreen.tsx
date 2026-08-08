@@ -41,6 +41,11 @@ interface RouteParams {
   startDate?: string;
   endDate?: string;
   initialMonthKey?: 'current';
+  focusTransactionId?: number;
+  focusMerchant?: string;
+  focusAmount?: number;
+  focusCategoryId?: number;
+  focusDescription?: string;
 }
 
 interface MonthOption {
@@ -509,6 +514,37 @@ const TransactionsScreen = () => {
     setSelectedTxn(txn);
     setEditCategoryPickerVisible(true);
   };
+
+  useEffect(() => {
+    if (!params.focusTransactionId) return;
+
+    const focusId = params.focusTransactionId;
+    const existing = transactions.find((txn) => txn.id === focusId);
+
+    const txn: Transaction = existing || {
+      id: focusId,
+      account_id: 0,
+      category_id: params.focusCategoryId ?? 0,
+      transaction_type: 'debit',
+      amount: params.focusAmount ?? 0,
+      merchant: params.focusMerchant,
+      description: params.focusDescription,
+      transaction_date: new Date().toISOString(),
+      source: 'sms',
+    };
+
+    onEditCategoryTap(txn);
+    navigation.setParams({
+      focusTransactionId: undefined,
+      focusMerchant: undefined,
+      focusAmount: undefined,
+      focusCategoryId: undefined,
+      focusDescription: undefined,
+    });
+    // Only re-run when a new focusTransactionId arrives (e.g. a fresh notification tap);
+    // intentionally ignores `transactions` so this doesn't re-fire once the list loads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.focusTransactionId]);
 
   const onDeleteTxn = (txn: Transaction) => {
     Alert.alert(

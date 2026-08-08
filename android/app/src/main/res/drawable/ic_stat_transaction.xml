@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status-bar icon for transaction alerts: a bold rupee sign.
+     Must be a white-on-transparent silhouette — from Android 5.0 the platform
+     reduces setSmallIcon() to its alpha channel, so a full-colour bitmap (e.g.
+     @mipmap/ic_launcher) renders as a solid grey blob.
+     Drawn as stroked centrelines rather than filled outlines: strokes keep the
+     weight even and stay legible when the system scales this down to ~18dp,
+     where thin multi-line artwork turns to mush. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- shirorekha (top bar) -->
+  <path
+      android:pathData="M4,4.6 H20"
+      android:strokeColor="#FFFFFFFF"
+      android:strokeWidth="2.3"
+      android:strokeLineCap="round"/>
+  <!-- second bar -->
+  <path
+      android:pathData="M4,9.1 H20"
+      android:strokeColor="#FFFFFFFF"
+      android:strokeWidth="2.3"
+      android:strokeLineCap="round"/>
+  <!-- bowl: drops from the second bar, runs right, curves back up to close -->
+  <path
+      android:pathData="M7.7,9.1 V13.9 H12.4 C15.2,13.9 16.8,11.6 16.2,9.1"
+      android:fillColor="#00000000"
+      android:strokeColor="#FFFFFFFF"
+      android:strokeWidth="2.3"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round"/>
+  <!-- descending leg -->
+  <path
+      android:pathData="M9.8,13.9 L16.9,20.6"
+      android:strokeColor="#FFFFFFFF"
+      android:strokeWidth="2.3"
+      android:strokeLineCap="round"/>
+</vector>

@@ -1,0 +1,74 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+  <uses-permission android:name="android.permission.INTERNET"/>
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+  <uses-permission android:name="android.permission.READ_CONTACTS"/>
+  <uses-permission android:name="android.permission.READ_SMS"/>
+  <uses-permission android:name="android.permission.RECEIVE_SMS"/>
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+  <uses-permission android:name="android.permission.VIBRATE"/>
+  <uses-permission android:name="com.android.vending.BILLING"/>
+  <!-- expo-file-system's own AndroidManifest.xml declares these two with no
+       maxSdkVersion cap, which the manifest merger unions in regardless of the
+       app's own permission list. Nothing in this app touches shared/external
+       storage directly (only expo-file-system's own scoped app-cache usage,
+       which doesn't need either permission), so suppress the merge explicitly:
+       deleting them from just this file doesn't remove a dependency's copy. -->
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove"/>
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove"/>
+  <!-- expo-screen-capture declares READ_MEDIA_IMAGES (Android 13 only) for its
+       screenshot-DETECTION capability, which this app never calls: AppLockContext.tsx
+       only uses preventScreenCaptureAsync/allowScreenCaptureAsync (FLAG_SECURE-based
+       prevention), which needs no media permission at all. Triggers Play's "Photo and
+       video permissions" declaration requirement even though nothing in the app reads
+       photos, so suppress rather than file a declaration that wouldn't be truthful. -->
+  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove"/>
+  <!-- androidx.work declares FOREGROUND_SERVICE for expedited work that falls back
+       to a foreground service on API < 31. SmsTransactionWorker is deliberately a
+       plain (non-expedited) request, so nothing here ever starts a foreground
+       service — drop the permission rather than have it show on the Play listing.
+       WAKE_LOCK and RECEIVE_BOOT_COMPLETED from the same merge are kept: WorkManager
+       genuinely needs them to run and to reschedule across reboots. -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove"/>
+  <queries>
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <category android:name="android.intent.category.BROWSABLE"/>
+      <data android:scheme="https"/>
+    </intent>
+  </queries>
+  <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="true" android:theme="@style/AppTheme" android:supportsRtl="true" android:enableOnBackInvokedCallback="false">
+    <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
+    <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
+    <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
+    <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="expensetracker"/>
+        <data android:scheme="exp+expense-tracker-mobile"/>
+      </intent-filter>
+    </activity>
+    <receiver android:name=".SMSReceiver" android:enabled="true" android:exported="true">
+      <intent-filter android:priority="999">
+        <action android:name="android.provider.Telephony.SMS_RECEIVED"/>
+      </intent-filter>
+    </receiver>
+    <receiver android:name=".ExpenseSummaryWidgetProvider" android:enabled="true" android:exported="true" android:label="@string/expense_widget_name">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/expense_summary_widget_info"/>
+    </receiver>
+    <receiver android:name=".ExpenseWidgetRefreshReceiver" android:enabled="true" android:exported="false">
+      <intent-filter>
+        <action android:name="dev.shivarya.expensetracker.widget.ACTION_REFRESH"/>
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>

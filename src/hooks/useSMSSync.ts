@@ -5,6 +5,7 @@ import * as Notifications from 'expo-notifications';
 
 import api from '../services/api';
 import { parseBankSmsMessages } from '../services/smsParser';
+import { formatCurrency } from '../utils/format';
 
 interface SMSMessage {
   _id: string;
@@ -37,6 +38,15 @@ interface SyncResult {
   savedCreditCount: number;
   savedDebitAmount: number;
   savedCreditAmount: number;
+  createdTransactions?: Array<{
+    id: number;
+    category_id: number;
+    category_name: string | null;
+    merchant: string | null;
+    amount: number;
+    transaction_type: string;
+    description: string;
+  }>;
   asyncStarted?: boolean;
   jobId?: number;
   jobStatus?: 'pending' | 'processing' | 'completed' | 'failed';
@@ -73,6 +83,7 @@ interface SyncSMSOptions {
 
 interface SmsBridgeNativeModule {
   drainPendingSMS: () => Promise<RealtimeSMSMessage[]>;
+  triggerTestTransactionSync?: () => Promise<boolean>;
 }
 
 const BANK_KEYWORDS = ['hdfc', 'sbi', 'icici', 'idfc', 'rbl', 'axis', 'kotak', 'credited', 'debited'];
@@ -84,6 +95,11 @@ const REALTIME_EVENT_NAME = 'SMSIncoming';
 const REALTIME_SYNC_DEBOUNCE_MS = 12000;
 const MANUAL_SYNC_JOB_POLL_INTERVAL_MS = 5000;
 const MANUAL_SYNC_JOB_MAX_POLLS = 180;
+const MANUAL_SYNC_ASYNC_LOOKBACK_THRESHOLD_MS = 3 * 24 * 60 * 60 * 1000;
+// Messages per POST. The server AI-parses each message, so a whole backlog in one
+// request blows the 30s Axios timeout; see the chunk loop in syncSMS for why that
+// used to stall permanently rather than just failing once.
+const SYNC_CHUNK_SIZE = 25;
 
 let notificationsConfigured = false;
 
@@ -176,6 +192,38 @@ const sendAutoSyncSummaryNotification = async (result: SyncResult): Promise<void
     return;
   }
 
+  const singleTxn = result.mode === 'auto_realtime' && result.createdTransactions?.length === 1
+    ? result.createdTransactions[0]
+    : null;
+
+  if (singleTxn) {
+    const categoryName = singleTxn.category_name || 'New Transaction';
+    const merchantLabel = singleTxn.merchant || singleTxn.description || 'transaction';
+    const verb = singleTxn.transaction_type === 'credit' ? 'from' : 'to';
+
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: categoryName,
+          body: `${formatCurrency(singleTxn.amount, 0)} ${verb} ${merchantLabel} — tap to fix category if wrong`,
+          data: {
+            transactionId: singleTxn.id,
+            categoryId: singleTxn.category_id,
+            merchant: singleTxn.merchant,
+            amount: singleTxn.amount,
+            description: singleTxn.description,
+            transactionType: singleTxn.transaction_type,
+          },
+        },
+        trigger: null,
+        identifier: `sms-sync-txn-${singleTxn.id}`,
+      });
+    } catch (error) {
+      console.warn('[useSMSSync] Failed to send auto-sync notification:', error);
+    }
+    return;
+  }
+
   const title = result.mode === 'auto_realtime' ? 'New SMS Synced' : 'Daily SMS Sync Complete';
   const body = `Found ${result.count} SMS | Saved ${result.saved} (${result.savedDebitCount} debit, ${result.savedCreditCount} credit)`;
 
@@ -207,7 +255,7 @@ const sendManualSyncSummaryNotification = async (status: SyncJobStatusPayload): 
   }
 
   const success = status.status === 'completed';
-  const title = success ? '30-Day Re-sync Complete' : '30-Day Re-sync Failed';
+  const title = success ? 'SMS Sync Complete' : 'SMS Sync Failed';
   const body = success
     ? `Processed ${status.totalItems} | Synced ${status.savedItems} | Duplicates ${status.skippedItems}`
     : `Processed ${status.processedItems}/${status.totalItems}. ${status.errorMessage || 'Please retry.'}`;
@@ -293,8 +341,11 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
     }
 
     try {
-      const alreadyGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS);
-      if (alreadyGranted) {
+      const [readAlreadyGranted, receiveAlreadyGranted] = await Promise.all([
+        PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS),
+        PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECEIVE_SMS),
+      ]);
+      if (readAlreadyGranted && receiveAlreadyGranted) {
         return true;
       }
 
@@ -302,17 +353,17 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
         return false;
       }
 
-      const granted = await PermissionsAndroid.request(
+      // RECEIVE_SMS is required for the real-time SMSReceiver broadcast to fire at all;
+      // READ_SMS alone only supports the manual/catch-up inbox scan. Request both together
+      // so a user who already granted just READ_SMS gets re-prompted for the missing one.
+      const results = await PermissionsAndroid.requestMultiple([
         PermissionsAndroid.PERMISSIONS.READ_SMS,
-        {
-          title: 'SMS Permission',
-          message: 'This app needs access to your SMS to automatically track bank transactions',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        }
+        PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
+      ]);
+      return (
+        results[PermissionsAndroid.PERMISSIONS.READ_SMS] === PermissionsAndroid.RESULTS.GRANTED &&
+        results[PermissionsAndroid.PERMISSIONS.RECEIVE_SMS] === PermissionsAndroid.RESULTS.GRANTED
       );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
     } catch (err) {
       console.error('Permission error:', err);
       return false;
@@ -505,21 +556,38 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
 
       console.log(`Found ${bankSMS.length} bank SMS messages`);
 
-      // Format for server
-      const formattedMessages = bankSMS.map(msg => ({
-        sender: msg.address,
-        body: msg.body,
-        date: new Date(msg.date).toISOString()
-      }));
+      // Format for server, oldest first so the per-chunk sync watermark below
+      // only ever moves forward over messages that were actually accepted.
+      const formattedMessages = [...bankSMS]
+        .sort((a, b) => a.date - b.date)
+        .map(msg => ({
+          sender: msg.address,
+          body: msg.body,
+          date: new Date(msg.date).toISOString(),
+        }));
 
-      // Send to server for parsing
-      const isAsyncManualResync = mode === 'manual' && shouldForceLookback && forceLookbackDays >= 30;
+      // Free tier (premium enforced + user not subscribed) parses on-device and
+      // posts structured transactions; otherwise use the richer server AI parse.
+      // While PREMIUM_ENFORCED is off the server reports premium=true, so this
+      // stays on the existing AI path with no behavior change.
+      const billing = await api.getBillingStatus().catch(() => null);
+      const useOnDevice = !!(billing?.enforced && !billing?.premium);
+
+      // Send to server for parsing. A large lookback window (first-ever sync,
+      // a stale reopen after several days, or an explicit forceLookbackDays
+      // resync) is routed through the background job path so it never blocks
+      // on the client's 30s Axios timeout.
+      const effectiveLookbackMs = shouldForceLookback
+        ? forceLookbackDays * 24 * 60 * 60 * 1000
+        : (lastSync ? Date.now() - lastSync : 30 * 24 * 60 * 60 * 1000);
+      const isAsyncManualResync = mode === 'manual' && !useOnDevice
+        && effectiveLookbackMs >= MANUAL_SYNC_ASYNC_LOOKBACK_THRESHOLD_MS;
 
       if (isAsyncManualResync) {
         const response = await api.parseSMS(formattedMessages, {
           async: true,
           mode,
-          forceLookbackDays,
+          ...(shouldForceLookback ? { forceLookbackDays } : {}),
         });
         const payload = response?.data?.data || {};
         const jobId = toNumber(payload.job_id || payload.jobId);
@@ -553,43 +621,115 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
         return startedResult;
       }
 
-      // Free tier (premium enforced + user not subscribed) parses on-device and
-      // posts structured transactions; otherwise use the richer server AI parse.
-      // While PREMIUM_ENFORCED is off the server reports premium=true, so this
-      // stays on the existing AI path with no behavior change.
-      const billing = await api.getBillingStatus().catch(() => null);
-      const useOnDevice = !!(billing?.enforced && !billing?.premium);
-
-      let response;
-      if (useOnDevice) {
-        const structured = parseBankSmsMessages(formattedMessages);
-        response = await api.parseStructuredSMS(structured);
-      } else {
-        response = await api.parseSMS(formattedMessages);
+      // Post in bounded chunks, advancing the stored watermark after each one.
+      // A single request carrying the whole backlog (78 messages after a reinstall
+      // wipes AsyncStorage and the window falls back to 30 days) exceeds the 30s
+      // Axios timeout — and because the watermark only advanced on success, the
+      // next run rebuilt the identical oversized batch and failed again forever.
+      // Chunking keeps every request small and makes partial progress durable.
+      const chunks: Array<typeof formattedMessages> = [];
+      for (let i = 0; i < formattedMessages.length; i += SYNC_CHUNK_SIZE) {
+        chunks.push(formattedMessages.slice(i, i + SYNC_CHUNK_SIZE));
       }
-      const payload = response?.data?.data || {};
-      const skippedHighConfidence = toNumber(payload.skipped_high_confidence ?? payload.skipped_duplicates);
+
+      const totals = {
+        parsed: 0,
+        saved: 0,
+        skipped: 0,
+        flagged: 0,
+        aiChecked: 0,
+        fallbackUsed: 0,
+        debitCount: 0,
+        creditCount: 0,
+        debitAmount: 0,
+        creditAmount: 0,
+      };
+      const createdTransactions: NonNullable<SyncResult['createdTransactions']> = [];
+      let processedMessages = 0;
+      let chunkError: any = null;
+
+      for (const chunk of chunks) {
+        try {
+          const response = useOnDevice
+            ? await api.parseStructuredSMS(parseBankSmsMessages(chunk))
+            : await api.parseSMS(chunk);
+
+          const payload = response?.data?.data || {};
+          totals.parsed += toNumber(payload.parsed_transactions);
+          totals.saved += toNumber(payload.saved_transactions);
+          totals.skipped += toNumber(payload.skipped_high_confidence ?? payload.skipped_duplicates);
+          totals.flagged += toNumber(payload.flagged_possible_duplicates);
+          totals.aiChecked += toNumber(payload.ai_checked_transactions);
+          totals.fallbackUsed += toNumber(payload.duplicate_fallback_used);
+          totals.debitCount += toNumber(payload.saved_debit_count);
+          totals.creditCount += toNumber(payload.saved_credit_count);
+          totals.debitAmount += toNumber(payload.saved_debit_amount);
+          totals.creditAmount += toNumber(payload.saved_credit_amount);
+
+          if (Array.isArray(payload.transactions)) {
+            payload.transactions.forEach((t: any) => {
+              createdTransactions.push({
+                id: Number(t.id),
+                category_id: Number(t.category_id),
+                category_name: t.category_name ?? null,
+                merchant: t.merchant ?? null,
+                amount: toNumber(t.amount),
+                transaction_type: String(t.transaction_type ?? 'debit'),
+                description: t.description ?? '',
+              });
+            });
+          }
+
+          processedMessages += chunk.length;
+
+          // Watermark forward to this chunk's newest message, so a later chunk
+          // failing can never cause these to be re-sent.
+          const newestInChunk = Date.parse(chunk[chunk.length - 1].date);
+          if (Number.isFinite(newestInChunk)) {
+            await AsyncStorage.setItem(LAST_SYNC_KEY, String(newestInChunk + 1));
+          }
+        } catch (error) {
+          chunkError = error;
+          break;
+        }
+      }
+
+      // Nothing landed at all — surface it as a failure via the usual path.
+      if (processedMessages === 0) {
+        throw chunkError ?? new Error('SMS sync failed');
+      }
+
+      if (chunkError) {
+        console.warn(
+          `[useSMSSync] Synced ${processedMessages}/${formattedMessages.length} messages; ` +
+          `remainder deferred to the next sync: ${chunkError?.message || chunkError}`
+        );
+      }
 
       const result: SyncResult = {
         success: true,
         mode,
-        count: bankSMS.length,
-        parsed: toNumber(payload.parsed_transactions),
-        saved: toNumber(payload.saved_transactions),
-        skipped: skippedHighConfidence,
-        skippedHighConfidence,
-        flaggedPossibleDuplicates: toNumber(payload.flagged_possible_duplicates),
-        aiCheckedTransactions: toNumber(payload.ai_checked_transactions),
-        duplicateFallbackUsed: toNumber(payload.duplicate_fallback_used),
-        savedDebitCount: toNumber(payload.saved_debit_count),
-        savedCreditCount: toNumber(payload.saved_credit_count),
-        savedDebitAmount: toNumber(payload.saved_debit_amount),
-        savedCreditAmount: toNumber(payload.saved_credit_amount),
+        count: processedMessages,
+        parsed: totals.parsed,
+        saved: totals.saved,
+        skipped: totals.skipped,
+        skippedHighConfidence: totals.skipped,
+        flaggedPossibleDuplicates: totals.flagged,
+        aiCheckedTransactions: totals.aiChecked,
+        duplicateFallbackUsed: totals.fallbackUsed,
+        savedDebitCount: totals.debitCount,
+        savedCreditCount: totals.creditCount,
+        savedDebitAmount: totals.debitAmount,
+        savedCreditAmount: totals.creditAmount,
+        createdTransactions: createdTransactions.length > 0 ? createdTransactions : undefined,
       };
 
-      // Update last sync time
+      // Only claim "synced up to now" when the whole backlog actually drained;
+      // otherwise leave the per-chunk watermark in place so the rest is retried.
       const newSyncTime = Date.now();
-      await AsyncStorage.setItem(LAST_SYNC_KEY, newSyncTime.toString());
+      if (!chunkError) {
+        await AsyncStorage.setItem(LAST_SYNC_KEY, newSyncTime.toString());
+      }
       setLastSyncTime(newSyncTime);
 
       await persistAutoSyncResult(result);
@@ -639,7 +779,10 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
 
     realtimeTimeoutRef.current = setTimeout(async () => {
       realtimeTimeoutRef.current = null;
-      const result = await syncSMS({ mode: 'auto_realtime', silent: true, notify: true });
+      // notify:false — SmsTransactionWorker (native) owns real-time transaction
+      // notifications now, since it also works when the JS engine is dead. This
+      // sync still runs to drain the queue and refresh in-app data.
+      const result = await syncSMS({ mode: 'auto_realtime', silent: true, notify: false });
       if (!result.success) {
         console.warn('[useSMSSync] Realtime sync did not succeed:', result.error || result.skipReason || 'unknown');
       }
@@ -760,6 +903,21 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
     }
   };
 
+  /**
+   * Runs the real native SmsTransactionWorker against a synthetic bank SMS, so the
+   * whole cold path (session read → POST → notification → tap) can be verified
+   * without waiting on an actual bank message.
+   */
+  const triggerTestTransactionAlert = useCallback(async (): Promise<boolean> => {
+    const bridge = getSmsBridgeModule();
+    if (!bridge?.triggerTestTransactionSync) {
+      return false;
+    }
+
+    await bridge.triggerTestTransactionSync();
+    return true;
+  }, []);
+
   return {
     syncSMS,
     isSyncing,
@@ -769,6 +927,7 @@ export const useSMSSync = (options: UseSMSSyncOptions = {}) => {
     isRealtimeBridgeAvailable,
     forwardSingleSMS,
     requestSMSPermission,
-    resetSyncHistory
+    resetSyncHistory,
+    triggerTestTransactionAlert
   };
 };

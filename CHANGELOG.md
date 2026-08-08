@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.10] - 2026-08-08
+### Added
+- **Instant transaction alerts**: a notification the moment a bank SMS arrives, showing the assigned category, amount and merchant — tap it to jump straight to fixing the category if it guessed wrong. Runs in a native background worker, so it works even when the app is closed.
+- **Permissions gate on first run**: the app now asks for SMS and notification access up front and won't proceed until both are granted, instead of silently degrading when one was missing.
+- **"Test Transaction Alert"** in More → Data Sync: fires the real alert pipeline against a synthetic bank SMS, so notification delivery can be checked without waiting on a real transaction.
+
+### Fixed
+- **Real-time SMS detection never worked**: the app requested `READ_SMS` but never `RECEIVE_SMS`, and Android does not deliver the incoming-SMS broadcast without it. Both are now requested together.
+- **Notifications never fired when the app was closed**: the alert was built in JavaScript, but the JS engine is not running when Android wakes the app purely to deliver an SMS broadcast — so the message was only queued and surfaced later, on next app open. The whole receive → sync → notify path is now native.
+- **SMS sync could stall permanently**: a large backlog was posted as one request that exceeded the 30s timeout, and since the sync watermark only advanced on success, every later attempt rebuilt the same oversized batch and failed again. Messages are now posted in bounded chunks with progress recorded after each one.
+- **Refreshed auth tokens didn't reach background components**: a silent token refresh updated app storage but not the native session store, so the widget and background sync kept using a stale token until the next cold start.
+
+### Google Play Notes
+- Get a notification the instant a bank transaction SMS arrives — with the category it was filed under — and tap it to correct that category on the spot. This release also fixes SMS auto-detection not working at all for some setups, makes notifications work while the app is closed, and makes syncing a large SMS backlog reliable.
+
 ## [2.7.0] - 2026-07-31
 ### Added
 - **Home loan tracking**: home loans now show up on the Accounts screen with remaining balance, a paid-off progress bar, EMI amount, ROI, and next due date. Backed by a new server-side sync pipeline that reads HDFC statement emails and tracks the balance forward automatically.

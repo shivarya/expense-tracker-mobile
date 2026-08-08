@@ -249,6 +249,17 @@ class ApiService {
     if (response.data.data.user) {
       await AsyncStorage.setItem('user_data', JSON.stringify(response.data.data.user));
     }
+    // Push the new JWT to the native-readable session store too. Without this the
+    // copy in SharedPreferences keeps the old token, so SmsTransactionWorker (and
+    // the widget) start 401ing and silently stop working. Dynamic import because
+    // widget.ts imports this module — a static import would be circular.
+    try {
+      const { syncWidgetSession } = await import('./widget');
+      await syncWidgetSession();
+    } catch (error) {
+      console.warn('[ApiService] Failed to sync refreshed token to native store:', error);
+    }
+
     console.log('[ApiService] Token refreshed silently ✓');
     return newToken;
   }

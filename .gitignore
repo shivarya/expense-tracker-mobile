@@ -9,8 +9,20 @@ node_modules/
 dist/
 web-build/
 
-# Native builds
-android/
+# Native projects are tracked (bare workflow): android/ holds hand-written Kotlin
+# — the SMS receiver, background transaction worker, notifier and home-screen
+# widget — that `expo prebuild` cannot regenerate. Ignoring the whole directory
+# meant a fresh clone would silently prebuild and drop all of it. Only the
+# generated and machine-specific parts are ignored below.
+android/.gradle/
+android/.kotlin/
+android/.idea/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/.cxx/
+android/local.properties
+android/app/release/
 ios/
 *.apk
 *.aab

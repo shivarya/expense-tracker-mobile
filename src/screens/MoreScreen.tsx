@@ -16,7 +16,7 @@ type MoreNavProp = NativeStackNavigationProp<MoreStackParamList, 'MoreHome'>;
 const MoreScreen = () => {
   const navigation = useNavigation<MoreNavProp>();
   const { theme, setTheme, isDark, colors } = useTheme();
-  const { syncSMS, isSyncing, lastSyncTime, lastAutoSyncResult, isRealtimeBridgeAvailable } = useSMSSync();
+  const { syncSMS, isSyncing, lastSyncTime, lastAutoSyncResult, isRealtimeBridgeAvailable, triggerTestTransactionAlert } = useSMSSync();
   const { refreshAll } = useData();
   const { logout } = useAuth();
   const { lockEnabled, biometricAvailable, biometricLabel, setLockEnabled } = useAppLock();
@@ -99,12 +99,19 @@ const MoreScreen = () => {
     try {
       setSyncResult(null);
       const result = await syncSMS();
-      
+
       if (result.success) {
+        if (result.asyncStarted) {
+          const message = `SMS sync started in background.\n\nJob ID: ${result.jobId}\nYou can continue using the app. A notification will appear when sync finishes.`;
+          setSyncResult(message);
+          Alert.alert('Sync Started', message);
+          return;
+        }
+
         const message = buildSyncMessage('SMS Sync Complete!', result);
         setSyncResult(message);
         Alert.alert('Success', message);
-        
+
         // Refresh data to show new transactions
         await refreshAll();
       }
@@ -146,6 +153,32 @@ const MoreScreen = () => {
               const errorMsg = error.message || 'Failed to re-sync last 30 days';
               Alert.alert('Error', errorMsg);
               setSyncResult(`Error: ${errorMsg}`);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleTestTransactionAlert = () => {
+    Alert.alert(
+      'Test Transaction Alert',
+      'Runs the real background sync against a fake ₹11 HDFC SMS to check that transaction notifications work. It creates one throwaway transaction you can delete afterwards.\n\nThe notification should appear within a few seconds.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Run Test',
+          style: 'default',
+          onPress: async () => {
+            try {
+              const started = await triggerTestTransactionAlert();
+              if (!started) {
+                Alert.alert('Unavailable', 'The native SMS bridge is not present in this build.');
+                return;
+              }
+              setSyncResult('Test alert queued — a notification should appear within a few seconds.');
+            } catch (error: any) {
+              Alert.alert('Error', error?.message || 'Failed to queue the test alert');
             }
           }
         }
@@ -225,6 +258,16 @@ const MoreScreen = () => {
           <Ionicons name="sync-outline" size={20} color={colors.text} />
           <Text style={[styles.resetButtonText, { color: colors.text }]}>Re-sync Last 30 Days Now</Text>
         </TouchableOpacity>
+
+        {isRealtimeBridgeAvailable && (
+          <TouchableOpacity
+            style={[styles.resetButton, { backgroundColor: colors.border }]}
+            onPress={handleTestTransactionAlert}
+          >
+            <Ionicons name="notifications-outline" size={20} color={colors.text} />
+            <Text style={[styles.resetButtonText, { color: colors.text }]}>Test Transaction Alert</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.syncInfo}>
           <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
