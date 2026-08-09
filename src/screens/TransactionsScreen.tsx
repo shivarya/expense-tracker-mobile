@@ -10,8 +10,6 @@ import {
   Alert,
   Modal,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
@@ -27,6 +25,7 @@ import {
 import ApiService from '../services/api';
 import { formatCurrency, formatOriginalCurrency } from '../utils/format';
 import CategoryPickerModal from '../components/CategoryPickerModal';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 
 type DateRangeKey = 'all' | '7d' | '30d' | '90d';
 type TxnType = 'all' | 'debit' | 'credit';
@@ -205,6 +204,9 @@ const TransactionsScreen = () => {
   const params = (route.params ?? {}) as RouteParams;
 
   const monthOptions = useMemo(() => getMonthOptions(6), []);
+  // Lifts bottom-anchored modals clear of the keyboard; see the hook for why
+  // KeyboardAvoidingView isn't dependable here (edge-to-edge + Modal window).
+  const keyboardHeight = useKeyboardHeight();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -1133,7 +1135,7 @@ const TransactionsScreen = () => {
         animationType="slide"
         onRequestClose={closeTxnDetails}
       >
-        <View style={styles.modalBackdrop}>
+        <View style={[styles.modalBackdrop, { paddingBottom: keyboardHeight }]}>
           <View style={[styles.modalCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Transaction Details</Text>
@@ -1268,13 +1270,8 @@ const TransactionsScreen = () => {
         animationType="slide"
         onRequestClose={closeEditNameModal}
       >
-        <View style={styles.modalBackdrop}>
-          <KeyboardAvoidingView
-            style={styles.modalKeyboardWrap}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
-          >
-            <View style={[styles.modalCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
+        <View style={[styles.modalBackdrop, { paddingBottom: keyboardHeight }]}>
+            <View style={[styles.modalCard, { borderColor: colors.border, backgroundColor: colors.card }]}>
               <View style={styles.modalHeader}>
                 <Text style={[styles.modalTitle, { color: colors.text }]}>Edit Transaction Name</Text>
                 <TouchableOpacity onPress={closeEditNameModal} disabled={nameSaving}>
@@ -1311,7 +1308,6 @@ const TransactionsScreen = () => {
                 </TouchableOpacity>
               </View>
             </View>
-          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -1321,7 +1317,7 @@ const TransactionsScreen = () => {
         animationType="slide"
         onRequestClose={() => setFilterModalVisible(false)}
       >
-        <View style={styles.modalBackdrop}>
+        <View style={[styles.modalBackdrop, { paddingBottom: keyboardHeight }]}>
           <View style={[styles.modalCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Filter Transactions</Text>
@@ -1512,7 +1508,7 @@ const TransactionsScreen = () => {
         animationType="slide"
         onRequestClose={closeSplitModal}
       >
-        <View style={styles.modalBackdrop}>
+        <View style={[styles.modalBackdrop, { paddingBottom: keyboardHeight }]}>
           <View style={[styles.modalCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Manage Split</Text>
@@ -1599,7 +1595,7 @@ const TransactionsScreen = () => {
         animationType="slide"
         onRequestClose={closeRefundModal}
       >
-        <View style={styles.modalBackdrop}>
+        <View style={[styles.modalBackdrop, { paddingBottom: keyboardHeight }]}>
           <View style={[styles.modalCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Allocate Refund</Text>
@@ -1685,7 +1681,7 @@ const TransactionsScreen = () => {
         animationType="slide"
         onRequestClose={closeManualGroupModal}
       >
-        <View style={styles.modalBackdrop}>
+        <View style={[styles.modalBackdrop, { paddingBottom: keyboardHeight }]}>
           <View style={[styles.modalCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Link Trip/Event Groups</Text>
@@ -1923,9 +1919,6 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 22,
     maxHeight: '84%',
-  },
-  modalKeyboardWrap: {
-    width: '100%',
   },
   modalHeader: {
     flexDirection: 'row',

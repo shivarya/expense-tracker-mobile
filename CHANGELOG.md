@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.11] - 2026-08-09
+### Fixed
+- **Text fields hidden behind the keyboard**: on the Transactions screen, opening the keyboard covered the input you were typing into — most obviously when renaming a transaction, where the field is focused automatically. The bottom-anchored dialogs now lift clear of the keyboard. Fixed for all of them (rename, filters, manual groups, split editor, refund allocation), not just rename.
+
+### Google Play Notes
+- Fixes the keyboard covering the text box when renaming a transaction, and the same problem in the filter, split, refund and group dialogs.
+
 ## [2.7.10] - 2026-08-08
 ### Added
 - **Instant transaction alerts**: a notification the moment a bank SMS arrives, showing the assigned category, amount and merchant — tap it to jump straight to fixing the category if it guessed wrong. Runs in a native background worker, so it works even when the app is closed.
