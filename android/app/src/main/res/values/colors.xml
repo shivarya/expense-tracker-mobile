@@ -18,4 +18,13 @@
   <color name="widget_graph_bar_active">#64B5F6</color>
   <color name="widget_graph_label">#757575</color>
   <color name="widget_income_text">#00C48C</color>
+  <!-- Same hex as ThemeContext.tsx's colors.success/colors.error -->
+  <color name="notif_credit_amount">#00C48C</color>
+  <color name="notif_debit_amount">#FF4757</color>
+  <!-- Explicit, not ?android:attr/textColorPrimary/Secondary: those resolved
+       to a low-contrast, hard-to-read color against the notification shade's
+       actual dark background on-device. Same explicit-per-mode approach as
+       widget_text_primary/secondary above, which is already proven to work. -->
+  <color name="notif_text_primary">#1A1A1A</color>
+  <color name="notif_text_secondary">#666666</color>
 </resources>

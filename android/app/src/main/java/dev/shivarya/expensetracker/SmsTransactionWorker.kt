@@ -116,18 +116,29 @@ class SmsTransactionWorker(context: Context, params: WorkerParameters) : Worker(
         val transactionId = txn.optInt("id", 0)
         if (transactionId <= 0) continue
 
-        SmsNotifier.notifyTransaction(
-          context = applicationContext,
-          transactionId = transactionId,
-          categoryName = txn.optString("category_name").takeIf { it.isNotBlank() && it != "null" },
-          categoryId = txn.optInt("category_id", 0).takeIf { it > 0 },
-          merchant = txn.optString("merchant").takeIf { it.isNotBlank() && it != "null" },
-          amount = txn.optDouble("amount", 0.0),
-          description = txn.optString("description").takeIf { it.isNotBlank() && it != "null" },
-          transactionType = txn.optString("transaction_type"),
-        )
-
-        Log.i(TAG, "Notified transaction id=$transactionId")
+        // Own try/catch per transaction: the server has already saved this
+        // row by this point, so a notify failure here must never bubble up
+        // to doWork()'s catch below. That catch returns Result.retry(), and
+        // by the time WorkManager retries, /parse/sms re-parses the SAME SMS
+        // and correctly finds it as an already-saved duplicate -- returning
+        // an empty transactions array, so the retry can never notify either.
+        // One bad transaction would otherwise permanently lose its
+        // notification AND abort notifying any later entries in this loop.
+        try {
+          SmsNotifier.notifyTransaction(
+            context = applicationContext,
+            transactionId = transactionId,
+            categoryName = txn.optString("category_name").takeIf { it.isNotBlank() && it != "null" },
+            categoryId = txn.optInt("category_id", 0).takeIf { it > 0 },
+            merchant = txn.optString("merchant").takeIf { it.isNotBlank() && it != "null" },
+            amount = txn.optDouble("amount", 0.0),
+            description = txn.optString("description").takeIf { it.isNotBlank() && it != "null" },
+            transactionType = txn.optString("transaction_type"),
+          )
+          Log.i(TAG, "Notified transaction id=$transactionId")
+        } catch (error: Exception) {
+          Log.w(TAG, "Notify failed for transaction id=$transactionId: ${error.message}")
+        }
       }
 
       Result.success()

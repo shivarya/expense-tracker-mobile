@@ -1,5 +1,6 @@
 import 'react-native-gesture-handler';
 import React from 'react';
+import { Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme, DarkTheme, LinkingOptions, getStateFromPath, createNavigationContainerRef } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -58,40 +59,38 @@ const mergeTransactionsParams = (state: any, extraParams: Record<string, unknown
   });
 };
 
-const linking: LinkingOptions<any> = {
-  prefixes: ['expensetracker://'],
-  config: {
-    screens: {
-      Login: 'login',
-      Main: {
-        screens: {
-          Dashboard: 'dashboard',
-          Investments: 'investments',
-          Expenses: {
-            screens: {
-              ExpensesOverview: 'expenses',
-              Transactions: 'expenses/current',
-              CategoriesSpend: 'expenses/categories',
-              MasterCategories: 'expenses/master-categories',
-            },
+const linkingConfig = {
+  screens: {
+    Login: 'login',
+    Main: {
+      screens: {
+        Dashboard: 'dashboard',
+        Investments: 'investments',
+        Expenses: {
+          screens: {
+            ExpensesOverview: 'expenses',
+            Transactions: 'expenses/current',
+            CategoriesSpend: 'expenses/categories',
+            MasterCategories: 'expenses/master-categories',
           },
-          Accounts: 'accounts',
-          More: 'more',
         },
+        Accounts: 'accounts',
+        More: 'more',
       },
     },
   },
-  getStateFromPath: (path, options) => {
-    const state = getStateFromPath(path, options);
-    if (!state) return state;
+};
 
-    if (path.includes('expenses/current')) {
-      const parsedParams = parseWidgetQueryParams(path);
-      mergeTransactionsParams(state, parsedParams);
-    }
+const linkingGetStateFromPath: LinkingOptions<any>['getStateFromPath'] = (path, options) => {
+  const state = getStateFromPath(path, options);
+  if (!state) return state;
 
-    return state;
-  },
+  if (path.includes('expenses/current')) {
+    const parsedParams = parseWidgetQueryParams(path);
+    mergeTransactionsParams(state, parsedParams);
+  }
+
+  return state;
 };
 
 export const navigationRef = createNavigationContainerRef<any>();
@@ -99,6 +98,47 @@ export const navigationRef = createNavigationContainerRef<any>();
 function AppContent() {
   const { isDark } = useTheme();
   const { locked, covered } = useAppLock();
+
+  // Deep links (from the native SmsNotifier transaction notification, or a
+  // widget tap) frequently arrive on a warm re-entry -- app process alive but
+  // backgrounded -- while RootNavigator is still showing its bare loading
+  // view (auth/permissions checks in flight, zero navigators mounted yet).
+  // React Navigation's own built-in 'url' listener has no retry: it calls
+  // navigation.dispatch() immediately, which silently no-ops (just a
+  // console.error) when nothing has registered a focus listener yet, so the
+  // link is dropped and the app just opens to whatever screen it defaults
+  // to. Providing `subscribe` lets us hold the URL and replay it once the
+  // container actually becomes ready, instead of relying on that no-retry
+  // listener catching every case a cold start's blocking getInitialURL()
+  // wait already handles fine.
+  const isNavigationReadyRef = React.useRef(false);
+  const pendingDeepLinkRef = React.useRef<{ url: string; listener: (url: string) => void } | null>(null);
+
+  const handleNavigationReady = React.useCallback(() => {
+    isNavigationReadyRef.current = true;
+    if (pendingDeepLinkRef.current) {
+      const { url, listener } = pendingDeepLinkRef.current;
+      pendingDeepLinkRef.current = null;
+      listener(url);
+    }
+  }, []);
+
+  const linking = React.useMemo<LinkingOptions<any>>(() => ({
+    prefixes: ['expensetracker://'],
+    config: linkingConfig,
+    getStateFromPath: linkingGetStateFromPath,
+    subscribe(listener) {
+      const subscription = Linking.addEventListener('url', ({ url }) => {
+        if (isNavigationReadyRef.current) {
+          listener(url);
+        } else {
+          pendingDeepLinkRef.current = { url, listener };
+        }
+      });
+
+      return () => subscription.remove();
+    },
+  }), []);
 
   React.useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
@@ -125,7 +165,12 @@ function AppContent() {
 
   return (
     <>
-      <NavigationContainer ref={navigationRef} theme={isDark ? DarkTheme : DefaultTheme} linking={linking}>
+      <NavigationContainer
+        ref={navigationRef}
+        theme={isDark ? DarkTheme : DefaultTheme}
+        linking={linking}
+        onReady={handleNavigationReady}
+      >
         <RootNavigator />
         <StatusBar style={isDark ? 'light' : 'dark'} />
       </NavigationContainer>

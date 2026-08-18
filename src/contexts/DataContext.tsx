@@ -4,6 +4,7 @@ import { DashboardData } from '../types/dashboard';
 import { Investments } from '../types/investments';
 import { BankAccount, Category, EMI } from '../types/transactions';
 import { Goal } from '../types/goals';
+import { Subscription } from '../types/subscriptions';
 import ApiService from '../services/api';
 import { requestWidgetSummaryRefresh } from '../services/widget';
 import { useAuth } from './AuthContext';
@@ -16,6 +17,7 @@ interface DataContextType {
   categories: Category[];
   emis: EMI[];
   goals: Goal[];
+  subscriptions: Subscription[];
   loading: boolean;
   error: string | null;
   refreshDashboard: () => Promise<void>;
@@ -24,6 +26,7 @@ interface DataContextType {
   refreshCategories: () => Promise<void>;
   refreshEmis: () => Promise<void>;
   refreshGoals: () => Promise<void>;
+  refreshSubscriptions: () => Promise<void>;
   refreshAll: () => Promise<void>;
 }
 
@@ -39,6 +42,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [categories, setCategories] = useState<Category[]>([]);
   const [emis, setEmis] = useState<EMI[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -123,6 +127,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  const refreshSubscriptions = useCallback(async () => {
+    try {
+      setError(null);
+      const data = await ApiService.getSubscriptions();
+      setSubscriptions(data.subscriptions);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch subscriptions');
+      console.error('Subscriptions error:', err);
+    }
+  }, []);
+
   const refreshAll = useCallback(async () => {
     await Promise.all([
       refreshDashboard(),
@@ -131,8 +146,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       refreshCategories(),
       refreshEmis(),
       refreshGoals(),
+      refreshSubscriptions(),
     ]);
-  }, [refreshDashboard, refreshInvestments, refreshAccounts, refreshCategories, refreshEmis, refreshGoals]);
+  }, [refreshDashboard, refreshInvestments, refreshAccounts, refreshCategories, refreshEmis, refreshGoals, refreshSubscriptions]);
 
   const tryDailyAutoSync = useCallback(async (reason: 'startup' | 'foreground') => {
     if (!user || autoSyncInProgressRef.current) {
@@ -188,6 +204,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         categories,
         emis,
         goals,
+        subscriptions,
         loading,
         error,
         refreshDashboard,
@@ -196,6 +213,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         refreshCategories,
         refreshEmis,
         refreshGoals,
+        refreshSubscriptions,
         refreshAll,
       }}
     >

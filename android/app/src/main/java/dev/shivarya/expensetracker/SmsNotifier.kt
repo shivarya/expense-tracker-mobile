@@ -13,6 +13,7 @@ import android.graphics.Rect
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -48,13 +49,9 @@ object SmsNotifier {
     val label = merchant?.takeIf { it.isNotBlank() }
       ?: description?.takeIf { it.isNotBlank() }
       ?: "transaction"
-    val title = categoryName?.takeIf { it.isNotBlank() } ?: "New Transaction"
-    val body = buildString {
-      append(formatAmount(amount))
-      append(if (isCredit) " from " else " to ")
-      append(label)
-      append(" — tap to fix category if wrong")
-    }
+    val titleText = categoryName?.takeIf { it.isNotBlank() } ?: "New Transaction"
+    val bodyText = "${formatAmount(amount)}${if (isCredit) " from " else " to "}$label — tap to fix category if wrong"
+    val connectorText = "${if (isCredit) "from" else "to"} $label — tap to fix category if wrong"
 
     val uri = buildFocusUri(transactionId, categoryId, merchant, amount, description)
 
@@ -69,16 +66,47 @@ object SmsNotifier {
       builder.setSmallIcon(R.drawable.ic_stat_transaction)
     }
 
-    val notification = builder
+    // Plain setContentTitle/setContentText stay set for accessibility, the
+    // notification history list, and Wear OS -- but Spannable color/bold/size
+    // spans on them are silently stripped by the notification shade's own
+    // rendering on some Android versions (confirmed on a Pixel 10 running
+    // current Android: neither survived, collapsed or expanded). A custom
+    // RemoteViews layout under DecoratedCustomViewStyle is the reliable way
+    // to actually get a bigger, bolder, credit-green/debit-red amount --
+    // same category of technique apps like Truecaller use for this.
+    val collapsedViews = try {
+      buildTransactionRemoteViews(context, R.layout.notification_transaction_collapsed, titleText, amount, isCredit, null)
+    } catch (_: Exception) {
+      null
+    }
+    val expandedViews = try {
+      buildTransactionRemoteViews(context, R.layout.notification_transaction_expanded, titleText, amount, isCredit, connectorText)
+    } catch (_: Exception) {
+      null
+    }
+
+    builder
       .setColor(Color.parseColor(ACCENT_COLOR))
       .setLargeIcon(appIconBitmap(context))
-      .setContentTitle(title)
-      .setContentText(body)
-      .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+      .setContentTitle(titleText)
+      .setContentText(bodyText)
       .setPriority(NotificationCompat.PRIORITY_DEFAULT)
       .setAutoCancel(true)
       .setContentIntent(createDeepLinkPendingIntent(context, uri))
-      .build()
+
+    if (collapsedViews != null && expandedViews != null) {
+      builder
+        .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+        .setCustomContentView(collapsedViews)
+        .setCustomBigContentView(expandedViews)
+    } else {
+      // Custom-view construction failed for some edge-case input -- fall
+      // back to the plain title/text above rather than losing the
+      // notification entirely.
+      builder.setStyle(NotificationCompat.BigTextStyle().bigText(bodyText))
+    }
+
+    val notification = builder.build()
 
     try {
       // Uses the transaction id so a repeat notify for the same row replaces
@@ -222,6 +250,36 @@ object SmsNotifier {
       intent,
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
+  }
+
+  /**
+   * Inflates the collapsed or expanded transaction layout and binds category
+   * name, amount, and (expanded only, when connectorText is non-null) the
+   * "to/from <merchant> — tap to fix category" line. Amount is bold/enlarged
+   * via the layout XML itself and colored credit-green / debit-red here at
+   * runtime (matching ThemeContext.tsx's colors.success/colors.error) --
+   * genuine TextView styling, not a Spannable the notification shade might
+   * ignore.
+   */
+  private fun buildTransactionRemoteViews(
+    context: Context,
+    layoutRes: Int,
+    categoryName: String,
+    amount: Double,
+    isCredit: Boolean,
+    connectorText: String?,
+  ): RemoteViews {
+    val views = RemoteViews(context.packageName, layoutRes)
+    views.setTextViewText(R.id.notif_category, categoryName)
+    views.setTextViewText(R.id.notif_amount, formatAmount(amount))
+    views.setTextColor(
+      R.id.notif_amount,
+      ContextCompat.getColor(context, if (isCredit) R.color.notif_credit_amount else R.color.notif_debit_amount),
+    )
+    if (connectorText != null) {
+      views.setTextViewText(R.id.notif_body, connectorText)
+    }
+    return views
   }
 
   private fun formatAmount(amount: Double): String = "₹" + trimAmount(amount)

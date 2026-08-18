@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.14] - 2026-08-10
+### Added
+- **Manually add a subscription**: on the Subscriptions screen, "Add Subscription Manually" lets you add one you already know about — a quarterly or annual charge that's only shown up once in your history so far, which isn't enough data for automatic detection to infer a repeating pattern on its own (it needs at least two payments to establish a cadence). Enter a name, amount, and billing cycle and it's tracked immediately, with the same Deactivate/Not-a-Subscription actions as auto-detected ones.
+
+### Google Play Notes
+- Subscriptions: you can now manually add a quarterly/yearly subscription you know about instead of waiting for auto-detection to catch it.
+
+## [2.7.13] - 2026-08-10
+### Fixed
+- **Transaction notification amount/category styling didn't actually show up**: 2.7.12 tried to bold/color/enlarge the amount and category using text styling that the notification shade silently ignored on some devices — the notification looked completely plain despite the underlying code running correctly. Rebuilt using a custom notification layout instead of text styling, which the OS can't strip. Confirmed live on-device: bold colored amount (green for money in, red for money out) and a bold category name, readable in both light and dark mode.
+
+### Google Play Notes
+- Fixes transaction notifications not actually showing the bigger/bolder/color-coded amount promised in the last update — confirmed working now on-device.
+
+## [2.7.12] - 2026-08-09
+### Added
+- **Subscriptions**: a new screen (More → Subscriptions) that detects recurring charges — Netflix, gym, SaaS, insurance premiums — from your transaction history based on repeating amounts and cadence. Shows an estimated monthly total, and each subscription has a "Deactivate" action (opens its cancellation page, then offers to mark it cancelled) and a "Not a Subscription" action to permanently dismiss a false positive. Detection runs once when you tap "Scan for Subscriptions," then continues automatically for new transactions as they come in.
+
+### Fixed
+- **Transaction notification tap sometimes didn't open the category picker**: if the app was backgrounded (not fully closed) when a real transaction notification arrived, tapping it could open the app without navigating anywhere — the deep link arrived while the app was still resolving login/permissions and React Navigation silently dropped it with no retry. The in-app "Test Transaction Alert" never hit this window, which is why it always worked. Deep links are now queued and replayed once the app is actually ready.
+
+### Changed
+- **Transaction notifications now highlight the amount**: bigger, bolder, and colored green for money in / red for money out — plus a bigger category name — so an unusual transaction is easier to spot at a glance, similar to how Truecaller highlights caller info.
+
+### Google Play Notes
+- New: a Subscriptions screen that finds your recurring charges (Netflix, gym, SaaS, etc.) from your transaction history, with quick links to cancel them. Also fixes transaction notifications sometimes not opening the right screen when tapped, and makes the amount in those notifications bigger, bolder, and color-coded.
+
 ## [2.7.11] - 2026-08-09
 ### Fixed
 - **Text fields hidden behind the keyboard**: on the Transactions screen, opening the keyboard covered the input you were typing into — most obviously when renaming a transaction, where the field is focused automatically. The bottom-anchored dialogs now lift clear of the keyboard. Fixed for all of them (rename, filters, manual groups, split editor, refund allocation), not just rename.

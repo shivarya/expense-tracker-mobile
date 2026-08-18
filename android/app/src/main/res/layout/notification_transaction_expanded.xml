@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Expanded view for the transaction notification. See
+  notification_transaction_collapsed.xml for why this is a custom
+  RemoteViews layout rather than Spannable-styled setContentText/BigTextStyle.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingBottom="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/notif_category"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/notif_text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            tools:text="Groceries" />
+
+        <TextView
+            android:id="@+id/notif_amount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            tools:text="₹219"
+            tools:textColor="@color/notif_debit_amount" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/notif_body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="@color/notif_text_secondary"
+        android:textSize="13sp"
+        tools:text="to Blinkit — tap to fix category if wrong" />
+</LinearLayout>

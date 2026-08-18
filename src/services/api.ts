@@ -6,6 +6,7 @@ import { ApiResponse, DashboardData } from '../types/dashboard';
 import { Investments } from '../types/investments';
 import { WidgetSummary } from '../types/widget';
 import { Goal, GoalContribution, MonthlyPlan } from '../types/goals';
+import { Subscription, SubscriptionsListResponse, SubscriptionScanResult } from '../types/subscriptions';
 import {
   Transaction,
   TransactionSplitLine,
@@ -636,6 +637,47 @@ class ApiService {
 
   async updateEMI(id: number, emi: Partial<EMI>) {
     const response = await this.api.put(`/emis/${id}`, emi);
+    return response.data;
+  }
+
+  // Subscriptions
+  async getSubscriptions(): Promise<SubscriptionsListResponse> {
+    const response = await this.api.get<ApiResponse<SubscriptionsListResponse>>('/subscriptions');
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch subscriptions');
+    }
+    return response.data.data;
+  }
+
+  async updateSubscription(id: number, payload: Partial<Pick<Subscription, 'status' | 'cancel_url' | 'notes'>>) {
+    const response = await this.api.patch(`/subscriptions/${id}`, payload);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to update subscription');
+    }
+    return response.data;
+  }
+
+  async scanForSubscriptions(): Promise<SubscriptionScanResult> {
+    const response = await this.api.post<ApiResponse<SubscriptionScanResult>>('/subscriptions/scan');
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to scan for subscriptions');
+    }
+    return response.data.data;
+  }
+
+  async createSubscription(payload: {
+    display_name?: string;
+    average_amount?: number;
+    billing_cycle: string;
+    transaction_id?: number;
+    category_id?: number;
+    cancel_url?: string;
+    notes?: string;
+  }) {
+    const response = await this.api.post('/subscriptions', payload);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to add subscription');
+    }
     return response.data;
   }
 

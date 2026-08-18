@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Collapsed (single-line) view for the transaction notification. Used via
+  NotificationCompat.Builder#setCustomContentView within
+  DecoratedCustomViewStyle, which keeps the system's own header (app icon,
+  name, timestamp) and only replaces this body row. Plain
+  setContentTitle/setContentText Spannable styling (bold, color, size spans)
+  gets silently stripped by the notification shade on some Android versions
+  (confirmed on a Pixel 10 running current Android), so this is the reliable
+  way to make the amount actually stand out.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical">
+
+    <TextView
+        android:id="@+id/notif_category"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/notif_text_primary"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        tools:text="Groceries" />
+
+    <TextView
+        android:id="@+id/notif_amount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        tools:text="₹219"
+        tools:textColor="@color/notif_debit_amount" />
+</LinearLayout>

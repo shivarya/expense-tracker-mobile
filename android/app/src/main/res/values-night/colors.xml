@@ -14,4 +14,9 @@
   <color name="widget_graph_bar_active">#64B5F6</color>
   <color name="widget_graph_label">#888888</color>
   <color name="widget_income_text">#00C48C</color>
+  <!-- Same hex as ThemeContext.tsx's colors.success/colors.error -->
+  <color name="notif_credit_amount">#00C48C</color>
+  <color name="notif_debit_amount">#FF4757</color>
+  <color name="notif_text_primary">#FFFFFF</color>
+  <color name="notif_text_secondary">#AAAAAA</color>
 </resources>

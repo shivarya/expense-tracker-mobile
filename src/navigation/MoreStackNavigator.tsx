@@ -11,6 +11,8 @@ import PaywallScreen from '../screens/PaywallScreen';
 import AddInvestmentScreen from '../screens/AddInvestmentScreen';
 import GoalsScreen from '../screens/GoalsScreen';
 import AddGoalScreen from '../screens/AddGoalScreen';
+import SubscriptionsScreen from '../screens/SubscriptionsScreen';
+import AddSubscriptionScreen from '../screens/AddSubscriptionScreen';
 
 export type MoreStackParamList = {
   MoreHome: undefined;
@@ -24,6 +26,8 @@ export type MoreStackParamList = {
   AddInvestment: undefined;
   Goals: undefined;
   AddGoal: { goalId?: number; mode?: 'contribution' } | undefined;
+  Subscriptions: undefined;
+  AddSubscription: undefined;
 };
 
 const Stack = createNativeStackNavigator<MoreStackParamList>();
@@ -85,6 +89,16 @@ const MoreStackNavigator = () => {
         name="AddGoal"
         component={AddGoalScreen}
         options={{ title: 'Add Goal' }}
+      />
+      <Stack.Screen
+        name="Subscriptions"
+        component={SubscriptionsScreen}
+        options={{ title: 'Subscriptions' }}
+      />
+      <Stack.Screen
+        name="AddSubscription"
+        component={AddSubscriptionScreen}
+        options={{ title: 'Add Subscription' }}
       />
     </Stack.Navigator>
   );
