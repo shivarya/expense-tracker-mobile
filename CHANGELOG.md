@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.15] - 2026-08-26
+### Added
+- **"View breakdown" on the Monthly Discretionary Cap goal**: tap it to jump straight to your transactions for the month, pre-filtered to exactly the categories that make up your discretionary spend cap (everything except Rent/EMI, Investments, and Transfers).
+- **Category breakdown chart on the Transactions screen**: whenever more than one category is showing, a donut chart plus a percentage/amount list appears above the list — works with whatever filters are active (date range, category, keyword, group), not just the discretionary breakdown.
+
+### Google Play Notes
+- New: tap "View breakdown" on your Monthly Discretionary Cap goal to see exactly what's driving it, and a category-wise chart with percentages now appears on the Transactions screen.
+
 ## [2.7.14] - 2026-08-10
 ### Added
 - **Manually add a subscription**: on the Subscriptions screen, "Add Subscription Manually" lets you add one you already know about — a quarterly or annual charge that's only shown up once in your history so far, which isn't enough data for automatic detection to infer a repeating pattern on its own (it needs at least two payments to establish a cadence). Enter a name, amount, and billing cycle and it's tracked immediately, with the same Deactivate/Not-a-Subscription actions as auto-detected ones.

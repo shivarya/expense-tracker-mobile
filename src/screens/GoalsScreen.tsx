@@ -353,6 +353,28 @@ const GoalsScreen = () => {
     );
   };
 
+  const openSpendCapBreakdown = (goal: Goal) => {
+    const categoryIds = goal.progress.category_ids;
+    if (!categoryIds || !categoryIds.length) return;
+
+    const now = new Date();
+    const startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const endDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    navigation.navigate('Expenses', {
+      initial: false,
+      screen: 'Transactions',
+      params: {
+        type: 'debit',
+        categoryIds,
+        categoryFilterLabel: 'Discretionary categories',
+        startDate,
+        endDate,
+        headerTitle: goal.name || 'Discretionary Spend',
+      },
+    });
+  };
+
   const renderSpendCap = (goal: Goal) => {
     const p = goal.progress;
     const overOrProjectedOver = p.is_over_cap || p.is_projected_to_exceed;
@@ -366,6 +388,16 @@ const GoalsScreen = () => {
         <Text style={[styles.calloutSubText, { color: overOrProjectedOver ? colors.warning : colors.textSecondary }]}>
           {p.days_remaining} days left — projected: {formatCurrency(p.run_rate_projection || 0, 0)}
         </Text>
+        {!!(p.category_ids && p.category_ids.length) && (
+          <TouchableOpacity
+            style={styles.breakdownLink}
+            onPress={() => openSpendCapBreakdown(goal)}
+            hitSlop={8}
+          >
+            <Text style={[styles.breakdownLinkText, { color: colors.primary }]}>View breakdown</Text>
+            <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+          </TouchableOpacity>
+        )}
       </>
     );
   };
@@ -456,6 +488,8 @@ const styles = StyleSheet.create({
   callout: { borderRadius: 8, padding: 10, marginTop: 8, gap: 4 },
   calloutText: { fontSize: 13, fontWeight: '700' },
   calloutSubText: { fontSize: 12, marginTop: 4 },
+  breakdownLink: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 8, alignSelf: 'flex-start' },
+  breakdownLinkText: { fontSize: 13, fontWeight: '600' },
   logButton: {
     marginTop: 10,
     borderWidth: 1,

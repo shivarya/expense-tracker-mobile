@@ -31,6 +31,7 @@ export interface GoalProgress {
   is_scoped?: boolean;
   additional_monthly_contribution_needed?: number;
   // spend_cap
+  category_ids?: number[];
   days_in_month?: number;
   days_elapsed?: number;
   days_remaining?: number;

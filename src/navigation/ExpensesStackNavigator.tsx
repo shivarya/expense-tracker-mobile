@@ -9,7 +9,9 @@ export type ExpensesStackParamList = {
   ExpensesOverview: undefined;
   Transactions: {
     categoryId?: number;
+    categoryIds?: number[];
     categoryName?: string;
+    categoryFilterLabel?: string;
     groupId?: number;
     manualGroupId?: number;
     groupName?: string;

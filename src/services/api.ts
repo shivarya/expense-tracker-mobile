@@ -345,6 +345,7 @@ class ApiService {
     end_date?: string;
     account_id?: number;
     category_id?: number;
+    category_ids?: string;
     group_id?: number;
     manual_group_id?: number;
     type?: string;
@@ -353,7 +354,7 @@ class ApiService {
     max_amount?: number;
     limit?: number;
     offset?: number;
-  }): Promise<{ transactions: Transaction[]; summary: any }> {
+  }): Promise<{ transactions: Transaction[]; summary: any; by_category: any[] }> {
     try {
       const response = await this.api.get<ApiResponse<any>>('/transactions', { params });
       if (!response.data.success || !response.data.data) {

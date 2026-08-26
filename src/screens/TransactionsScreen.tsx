@@ -12,6 +12,7 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { PieChart } from 'react-native-gifted-charts';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useData } from '../contexts/DataContext';
@@ -32,7 +33,9 @@ type TxnType = 'all' | 'debit' | 'credit';
 
 interface RouteParams {
   categoryId?: number;
+  categoryIds?: number[];
   categoryName?: string;
+  categoryFilterLabel?: string;
   groupId?: number;
   manualGroupId?: number;
   groupName?: string;
@@ -196,6 +199,24 @@ const parseOptionalFilterAmount = (value: string): number | undefined => {
 
 const PAGE_SIZE = 50;
 
+// Same muted palette ExpensesScreen uses for its category donut/breakdown, kept
+// here too since it's a small local constant, not worth a shared module for.
+const CATEGORY_COLORS = [
+  '#FF4757', '#5B5FEF', '#FFA502', '#00C48C',
+  '#9C27B0', '#FF6F61', '#17C0EB', '#A3CB38',
+  '#FDA7DF', '#786FA6',
+];
+
+interface CategoryBreakdown {
+  category_id?: number;
+  category: string;
+  color?: string;
+  icon?: string;
+  amount: number;
+  percentage: number;
+  transaction_count?: number;
+}
+
 const TransactionsScreen = () => {
   const { colors, isDark } = useTheme();
   const { categories, refreshCategories } = useData();
@@ -215,6 +236,7 @@ const TransactionsScreen = () => {
   const [paginationOffset, setPaginationOffset] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [summary, setSummary] = useState<any>(null);
+  const [byCategory, setByCategory] = useState<CategoryBreakdown[]>([]);
   const [groups, setGroups] = useState<TransactionGroup[]>([]);
   const [manualGroups, setManualGroups] = useState<ManualTransactionGroup[]>([]);
 
@@ -222,6 +244,9 @@ const TransactionsScreen = () => {
   const [selectedRange, setSelectedRange] = useState<DateRangeKey>('30d');
   const [selectedType, setSelectedType] = useState<TxnType>(params.type || 'all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(params.categoryId);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[] | undefined>(
+    params.categoryIds && params.categoryIds.length ? params.categoryIds : undefined
+  );
   const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>(params.groupId);
   const [selectedManualGroupId, setSelectedManualGroupId] = useState<number | undefined>(params.manualGroupId);
   const [searchKeyword, setSearchKeyword] = useState<string>('');
@@ -266,6 +291,20 @@ const TransactionsScreen = () => {
   const [selectedRefundExpenseId, setSelectedRefundExpenseId] = useState<number | null>(null);
   const [refundAmountText, setRefundAmountText] = useState('');
   const hasLoadedOnceRef = useRef(false);
+
+  const categoriesWithColors = useMemo(
+    () =>
+      byCategory.map((item, i) => ({
+        ...item,
+        _color: item.color && item.color !== '#9E9E9E' ? item.color : CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+      })),
+    [byCategory]
+  );
+
+  const categoryPieData = useMemo(
+    () => categoriesWithColors.map((item) => ({ value: Number(item.amount), color: item._color, text: '' })),
+    [categoriesWithColors]
+  );
 
   const selectedCategory = categories.find((item) => item.id === selectedCategoryId);
   const selectedGroup = groups.find((item) => item.id === selectedGroupId);
@@ -313,7 +352,8 @@ const TransactionsScreen = () => {
     return {
       start_date: useRouteDateOverride ? params.startDate : dateFilter.startDate,
       end_date: useRouteDateOverride ? params.endDate : dateFilter.endDate,
-      category_id: selectedCategoryId,
+      category_id: selectedCategoryIds && selectedCategoryIds.length ? undefined : selectedCategoryId,
+      category_ids: selectedCategoryIds && selectedCategoryIds.length ? selectedCategoryIds.join(',') : undefined,
       group_id: selectedGroupId,
       manual_group_id: selectedManualGroupId,
       type: selectedType === 'all' ? undefined : selectedType,
@@ -323,7 +363,7 @@ const TransactionsScreen = () => {
       limit: PAGE_SIZE,
       offset,
     };
-  }, [maxAmount, minAmount, monthOptions, params.endDate, params.startDate, searchKeyword, selectedCategoryId, selectedGroupId, selectedManualGroupId, selectedMonth, selectedRange, selectedType, useRouteDateOverride]);
+  }, [maxAmount, minAmount, monthOptions, params.endDate, params.startDate, searchKeyword, selectedCategoryId, selectedCategoryIds, selectedGroupId, selectedManualGroupId, selectedMonth, selectedRange, selectedType, useRouteDateOverride]);
 
   const fetchTransactions = useCallback(async (showLoader = true) => {
     try {
@@ -335,6 +375,7 @@ const TransactionsScreen = () => {
 
       setTransactions(fetchedTransactions);
       setSummary(res.summary || null);
+      setByCategory(res.by_category || []);
       setPaginationOffset(fetchedTransactions.length);
       setHasMore(fetchedTransactions.length < totalCount);
       hasLoadedOnceRef.current = true;
@@ -483,6 +524,9 @@ const TransactionsScreen = () => {
     if (typeof params.categoryId === 'number') {
       setSelectedCategoryId(params.categoryId);
     }
+    if (params.categoryIds && params.categoryIds.length) {
+      setSelectedCategoryIds(params.categoryIds);
+    }
     if (typeof params.groupId === 'number') {
       setSelectedGroupId(params.groupId);
     }
@@ -493,7 +537,7 @@ const TransactionsScreen = () => {
     if (params.startDate || params.endDate) {
       setUseRouteDateOverride(true);
     }
-  }, [params.categoryId, params.endDate, params.groupId, params.initialMonthKey, params.manualGroupId, params.startDate, params.type]);
+  }, [params.categoryId, params.categoryIds, params.endDate, params.groupId, params.initialMonthKey, params.manualGroupId, params.startDate, params.type]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1008,10 +1052,13 @@ const TransactionsScreen = () => {
             <TouchableOpacity
               style={[styles.categoryFilterBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={() => setFilterCategoryPickerVisible(true)}
+              disabled={!!(selectedCategoryIds && selectedCategoryIds.length)}
             >
               <Text style={[styles.categoryFilterLabel, { color: colors.textSecondary }]}>Category</Text>
               <Text style={[styles.categoryFilterValue, { color: selectedCategory?.color || colors.text }]}>
-                {selectedCategory?.name || params.categoryName || 'All categories'}
+                {selectedCategoryIds && selectedCategoryIds.length
+                  ? params.categoryFilterLabel || `${selectedCategoryIds.length} categories`
+                  : selectedCategory?.name || params.categoryName || 'All categories'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -1019,6 +1066,7 @@ const TransactionsScreen = () => {
               onPress={() => {
                 setUseRouteDateOverride(false);
                 setSelectedCategoryId(undefined);
+                setSelectedCategoryIds(undefined);
                 setSelectedGroupId(undefined);
                 setSelectedManualGroupId(undefined);
                 setSelectedMonth('all');
@@ -1048,13 +1096,58 @@ const TransactionsScreen = () => {
             </View>
           ) : null}
 
-          <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+          <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.summaryText, { color: colors.textSecondary }]}>Showing {transactions.length} / {Number(summary?.total_count || transactions.length)} transactions</Text>
             <Text style={[styles.summaryAmount, { color: colors.error }]}>Spent {formatCurrency(Number(summary?.total_debit || 0), 0)}</Text>
           </View>
+
+          {categoriesWithColors.length > 1 && (
+            <View style={[styles.categoryBreakdownCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={styles.categoryBreakdownHeader}>
+                <View style={styles.categoryBreakdownDonut}>
+                  <PieChart
+                    data={categoryPieData}
+                    donut
+                    radius={38}
+                    innerRadius={24}
+                    centerLabelComponent={() => (
+                      <Text style={[styles.categoryBreakdownDonutCenter, { color: colors.text }]}>
+                        {categoriesWithColors.length}
+                      </Text>
+                    )}
+                  />
+                </View>
+                <View style={styles.categoryBreakdownHeaderText}>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Category Breakdown</Text>
+                  <Text style={[styles.categoryBreakdownSub, { color: colors.textSecondary }]}>
+                    {categoriesWithColors.length} categories in this filter
+                  </Text>
+                </View>
+              </View>
+              {categoriesWithColors.map((item, i) => (
+                <View key={item.category_id ?? i} style={styles.categoryBreakdownRow}>
+                  <View style={styles.categoryBreakdownNameRow}>
+                    <View style={[styles.categoryBreakdownDot, { backgroundColor: item._color }]} />
+                    <Text style={[styles.categoryBreakdownName, { color: colors.text }]} numberOfLines={1}>
+                      {item.category}
+                    </Text>
+                    <Text style={[styles.categoryBreakdownPct, { color: item._color }]}>{item.percentage.toFixed(1)}%</Text>
+                  </View>
+                  <View style={styles.categoryBreakdownAmountRow}>
+                    <View style={[styles.categoryBreakdownBarBg, { backgroundColor: colors.border }]}>
+                      <View style={[styles.categoryBreakdownBarFill, { width: `${Math.min(item.percentage, 100)}%` as any, backgroundColor: item._color }]} />
+                    </View>
+                    <Text style={[styles.categoryBreakdownAmount, { color: colors.textSecondary }]}>
+                      {formatCurrency(item.amount, 0)}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
-        <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+        <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {transactions.map((txn, index) => (
             <View key={txn.id}>
               <TouchableOpacity
@@ -1994,6 +2087,28 @@ const styles = StyleSheet.create({
   },
   summaryText: { fontSize: 12, fontWeight: '600' },
   summaryAmount: { fontSize: 13, fontWeight: '700' },
+  categoryBreakdownCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    gap: 12,
+  },
+  categoryBreakdownHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  categoryBreakdownDonut: { alignItems: 'center', justifyContent: 'center' },
+  categoryBreakdownDonutCenter: { fontSize: 14, fontWeight: '700' },
+  categoryBreakdownHeaderText: { flex: 1 },
+  sectionTitle: { fontSize: 14, fontWeight: '700' },
+  categoryBreakdownSub: { fontSize: 12, marginTop: 2 },
+  categoryBreakdownRow: { gap: 4 },
+  categoryBreakdownNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  categoryBreakdownDot: { width: 8, height: 8, borderRadius: 4 },
+  categoryBreakdownName: { flex: 1, fontSize: 13, fontWeight: '600' },
+  categoryBreakdownPct: { fontSize: 12, fontWeight: '700' },
+  categoryBreakdownAmountRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  categoryBreakdownBarBg: { flex: 1, height: 4, borderRadius: 2, overflow: 'hidden' },
+  categoryBreakdownBarFill: { height: '100%', borderRadius: 2 },
+  categoryBreakdownAmount: { fontSize: 12, fontWeight: '600', minWidth: 70, textAlign: 'right' },
   listCard: {
     marginHorizontal: 16,
     marginBottom: 20,
