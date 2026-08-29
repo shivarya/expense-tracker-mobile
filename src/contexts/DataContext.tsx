@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { DashboardData } from '../types/dashboard';
 import { Investments } from '../types/investments';
 import { BankAccount, Category, EMI } from '../types/transactions';
@@ -9,6 +11,69 @@ import ApiService from '../services/api';
 import { requestWidgetSummaryRefresh } from '../services/widget';
 import { useAuth } from './AuthContext';
 import { useSMSSync } from '../hooks/useSMSSync';
+import { formatCurrency } from '../utils/format';
+
+const SPEND_CAP_NOTIFICATION_CHANNEL = 'spend-cap-alerts';
+const SPEND_CAP_NOTIFIED_KEY_PREFIX = 'spend_cap_notified_';
+
+// Fires a local "you've crossed your monthly cap" notification at most once per
+// calendar month, the moment a spend_cap goal reports is_over_cap. There is no
+// server push infra for this app (see useSMSSync's identical local-notification
+// pattern) -- everything runs on-device, keyed off whatever data refresh happens
+// to run next (app open, pull-to-refresh, post-sync refreshAll).
+const notifySpendCapIfNeeded = async (goals: Goal[]) => {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+
+  const capGoal = goals.find((g) => g.goal_type === 'spend_cap' && g.status === 'active' && g.progress.is_over_cap);
+  if (!capGoal) {
+    return;
+  }
+
+  const monthKey = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const storageKey = `${SPEND_CAP_NOTIFIED_KEY_PREFIX}${monthKey}`;
+
+  try {
+    const already = await AsyncStorage.getItem(storageKey);
+    if (already) {
+      return;
+    }
+
+    const existing = await Notifications.getPermissionsAsync();
+    let status = existing.status;
+    if (status !== 'granted') {
+      const requested = await Notifications.requestPermissionsAsync();
+      status = requested.status;
+    }
+    if (status !== 'granted') {
+      return;
+    }
+
+    await Notifications.setNotificationChannelAsync(SPEND_CAP_NOTIFICATION_CHANNEL, {
+      name: 'Spending Cap Alerts',
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF4757',
+    });
+
+    const current = capGoal.progress.current_amount || 0;
+    const target = capGoal.progress.target_amount || 0;
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Monthly discretionary cap reached',
+        body: `You've spent ${formatCurrency(current, 0)} of your ${formatCurrency(target, 0)} cap this month.`,
+      },
+      trigger: null,
+      identifier: `spend-cap-${monthKey}`,
+    });
+
+    await AsyncStorage.setItem(storageKey, '1');
+  } catch (error) {
+    console.warn('[DataContext] Spend cap notification failed:', error);
+  }
+};
 
 interface DataContextType {
   dashboard: DashboardData | null;
@@ -121,6 +186,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setError(null);
       const data = await ApiService.getGoals();
       setGoals(data);
+      void notifySpendCapIfNeeded(data);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch goals');
       console.error('Goals error:', err);

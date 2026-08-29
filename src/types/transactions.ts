@@ -8,6 +8,7 @@ export interface BankAccount {
   credit_limit?: number;
   available_credit?: number;
   card_last_four?: string;
+  card_type?: string;
   status: 'active' | 'closed' | 'frozen';
 }
 

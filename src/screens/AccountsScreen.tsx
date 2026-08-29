@@ -70,7 +70,7 @@ const AccountsScreen = () => {
                     backgroundColor: account.status === 'active' ? '#00C48C' : '#aaa',
                   }]} />
                 </View>
-                <Text style={styles.cardChipRow}>••••  ••••  ••••  <Text style={styles.cardChipDigits}>1234</Text></Text>
+                <Text style={styles.cardChipRow}>••••  ••••  ••••  <Text style={styles.cardChipDigits}>{account.card_last_four || '••••'}</Text></Text>
                 <Text style={styles.cardName}>{account.account_name}</Text>
                 <View style={styles.cardDivider} />
                 <View style={styles.cardStatsRow}>

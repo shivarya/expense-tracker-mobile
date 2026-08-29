@@ -32,6 +32,13 @@ export interface GoalProgress {
   additional_monthly_contribution_needed?: number;
   // spend_cap
   category_ids?: number[];
+  category_breakdown?: Array<{
+    category_id: number;
+    category_name: string;
+    category_color: string;
+    category_icon: string;
+    amount: number;
+  }>;
   days_in_month?: number;
   days_elapsed?: number;
   days_remaining?: number;

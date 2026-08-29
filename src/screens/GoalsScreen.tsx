@@ -375,9 +375,29 @@ const GoalsScreen = () => {
     });
   };
 
+  const openCategoryTransactions = (cat: { category_id: number; category_name: string }) => {
+    const now = new Date();
+    const startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const endDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    navigation.navigate('Expenses', {
+      initial: false,
+      screen: 'Transactions',
+      params: {
+        type: 'debit',
+        categoryId: cat.category_id,
+        categoryName: cat.category_name,
+        startDate,
+        endDate,
+        headerTitle: cat.category_name,
+      },
+    });
+  };
+
   const renderSpendCap = (goal: Goal) => {
     const p = goal.progress;
     const overOrProjectedOver = p.is_over_cap || p.is_projected_to_exceed;
+    const breakdown = (p.category_breakdown || []).filter((c) => c.amount > 0);
     return (
       <>
         {statusRow(p.progress_percent, !overOrProjectedOver, 'Within Cap', 'Over Cap')}
@@ -388,13 +408,34 @@ const GoalsScreen = () => {
         <Text style={[styles.calloutSubText, { color: overOrProjectedOver ? colors.warning : colors.textSecondary }]}>
           {p.days_remaining} days left — projected: {formatCurrency(p.run_rate_projection || 0, 0)}
         </Text>
+        {breakdown.length > 0 && (
+          <View style={styles.categoryBreakdownList}>
+            {breakdown.map((cat) => (
+              <TouchableOpacity
+                key={cat.category_id}
+                style={styles.categoryBreakdownRow}
+                onPress={() => openCategoryTransactions(cat)}
+                hitSlop={4}
+              >
+                <View style={[styles.categoryDot, { backgroundColor: cat.category_color || colors.border }]} />
+                <Text style={[styles.categoryBreakdownName, { color: colors.text }]} numberOfLines={1}>
+                  {cat.category_name}
+                </Text>
+                <Text style={[styles.categoryBreakdownAmount, { color: colors.textSecondary }]}>
+                  {formatCurrency(cat.amount, 0)}
+                </Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
         {!!(p.category_ids && p.category_ids.length) && (
           <TouchableOpacity
             style={styles.breakdownLink}
             onPress={() => openSpendCapBreakdown(goal)}
             hitSlop={8}
           >
-            <Text style={[styles.breakdownLinkText, { color: colors.primary }]}>View breakdown</Text>
+            <Text style={[styles.breakdownLinkText, { color: colors.primary }]}>View all discretionary transactions</Text>
             <Ionicons name="chevron-forward" size={14} color={colors.primary} />
           </TouchableOpacity>
         )}
@@ -490,6 +531,11 @@ const styles = StyleSheet.create({
   calloutSubText: { fontSize: 12, marginTop: 4 },
   breakdownLink: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 8, alignSelf: 'flex-start' },
   breakdownLinkText: { fontSize: 13, fontWeight: '600' },
+  categoryBreakdownList: { marginTop: 10, gap: 2 },
+  categoryBreakdownRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
+  categoryDot: { width: 8, height: 8, borderRadius: 4 },
+  categoryBreakdownName: { flex: 1, fontSize: 13, fontWeight: '500' },
+  categoryBreakdownAmount: { fontSize: 13, fontWeight: '600' },
   logButton: {
     marginTop: 10,
     borderWidth: 1,
