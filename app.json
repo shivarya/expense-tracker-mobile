@@ -24,7 +24,7 @@
         "backgroundColor": "#FFFFFF"
       },
       "package": "dev.shivarya.expensetracker",
-      "versionCode": 53,
+      "versionCode": 64,
       "permissions": [
         "READ_SMS",
         "RECEIVE_SMS",
