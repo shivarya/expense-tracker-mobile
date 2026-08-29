@@ -9,8 +9,6 @@ import StatementSyncScreen from '../screens/StatementSyncScreen';
 import GmailSyncScreen from '../screens/GmailSyncScreen';
 import PaywallScreen from '../screens/PaywallScreen';
 import AddInvestmentScreen from '../screens/AddInvestmentScreen';
-import GoalsScreen from '../screens/GoalsScreen';
-import AddGoalScreen from '../screens/AddGoalScreen';
 import SubscriptionsScreen from '../screens/SubscriptionsScreen';
 import AddSubscriptionScreen from '../screens/AddSubscriptionScreen';
 
@@ -24,8 +22,6 @@ export type MoreStackParamList = {
   GmailSync: undefined;
   Paywall: undefined;
   AddInvestment: undefined;
-  Goals: undefined;
-  AddGoal: { goalId?: number; mode?: 'contribution' } | undefined;
   Subscriptions: undefined;
   AddSubscription: undefined;
 };
@@ -79,16 +75,6 @@ const MoreStackNavigator = () => {
         name="AddInvestment"
         component={AddInvestmentScreen}
         options={{ title: 'Add FD / PF / NPS' }}
-      />
-      <Stack.Screen
-        name="Goals"
-        component={GoalsScreen}
-        options={{ title: 'Goals' }}
-      />
-      <Stack.Screen
-        name="AddGoal"
-        component={AddGoalScreen}
-        options={{ title: 'Add Goal' }}
       />
       <Stack.Screen
         name="Subscriptions"

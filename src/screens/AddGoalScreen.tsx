@@ -35,7 +35,7 @@ const num = (v: string): number => {
 
 const AddGoalScreen = () => {
   const { colors } = useTheme();
-  const { emis, refreshAll } = useData();
+  const { emis, categories, refreshAll } = useData();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const goalId: number | undefined = route.params?.goalId;
@@ -57,6 +57,7 @@ const AddGoalScreen = () => {
   const [startAmount, setStartAmount] = useState('0');
   const [assumedReturn, setAssumedReturn] = useState('10');
   const [assumedContribution, setAssumedContribution] = useState('');
+  const [excludedCategoryIds, setExcludedCategoryIds] = useState<number[]>([]);
 
   // contribution mini-form
   const [contribAmount, setContribAmount] = useState('');
@@ -77,6 +78,7 @@ const AddGoalScreen = () => {
         setStartAmount(String(goal.start_amount ?? 0));
         setAssumedReturn(goal.assumed_annual_return_percent != null ? String(goal.assumed_annual_return_percent) : '10');
         setAssumedContribution(goal.assumed_monthly_contribution != null ? String(goal.assumed_monthly_contribution) : '');
+        setExcludedCategoryIds(goal.excluded_category_ids || []);
       } catch (error: any) {
         Alert.alert('Error', getApiErrorMessage(error, 'Failed to load goal'));
       } finally {
@@ -123,6 +125,12 @@ const AddGoalScreen = () => {
       })}
     </View>
   );
+
+  const toggleExcludedCategory = (categoryId: number) => {
+    setExcludedCategoryIds((prev) =>
+      prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId]
+    );
+  };
 
   const handleSaveContribution = async () => {
     if (num(contribAmount) <= 0) {
@@ -187,6 +195,7 @@ const AddGoalScreen = () => {
         return;
       }
       payload.target_amount = num(targetAmount);
+      payload.excluded_category_ids = excludedCategoryIds;
     }
 
     try {
@@ -297,6 +306,30 @@ const AddGoalScreen = () => {
             <Text style={[styles.hint, { color: colors.textSecondary }]}>
               Tracks all discretionary expense categories by default (everything except Rent/EMI).
             </Text>
+
+            <Text style={[styles.label, { color: colors.text, marginTop: 8 }]}>Exclude Categories (optional)</Text>
+            <Text style={[styles.hint, { color: colors.textSecondary }]}>
+              Tap a category to leave it out of this cap entirely — its spend won't count here, but still shows up everywhere else.
+            </Text>
+            <View style={styles.chipRow}>
+              {categories
+                .filter((c) => c.type === 'expense' && c.name !== 'Rent/EMI')
+                .map((c) => {
+                  const isExcluded = excludedCategoryIds.includes(c.id);
+                  return (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[
+                        styles.chip,
+                        { borderColor: isExcluded ? colors.error : colors.border, backgroundColor: isExcluded ? colors.error : colors.background },
+                      ]}
+                      onPress={() => toggleExcludedCategory(c.id)}
+                    >
+                      <Text style={[styles.chipText, { color: isExcluded ? colors.background : colors.text }]}>{c.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+            </View>
           </>
         )}
 

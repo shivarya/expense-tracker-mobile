@@ -58,6 +58,7 @@ export interface Goal {
   assumed_annual_return_percent?: number | null;
   assumed_monthly_contribution?: number | null;
   linked_category_ids?: number[] | null;
+  excluded_category_ids?: number[] | null;
   status: GoalStatus;
   notes?: string | null;
   created_at?: string;

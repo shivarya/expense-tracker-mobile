@@ -7,6 +7,7 @@ import DashboardScreen from '../screens/DashboardScreen';
 import InvestmentsScreen from '../screens/InvestmentsScreen';
 import ExpensesStackNavigator from './ExpensesStackNavigator';
 import AccountsScreen from '../screens/AccountsScreen';
+import GoalsStackNavigator from './GoalsStackNavigator';
 import MoreStackNavigator from './MoreStackNavigator';
 
 const Tab = createBottomTabNavigator();
@@ -26,6 +27,8 @@ const AppNavigator = () => {
             iconName = focused ? 'wallet' : 'wallet-outline';
           } else if (route.name === 'Accounts') {
             iconName = focused ? 'card' : 'card-outline';
+          } else if (route.name === 'Goals') {
+            iconName = focused ? 'trophy' : 'trophy-outline';
           } else if (route.name === 'More') {
             iconName = focused ? 'menu' : 'menu-outline';
           }
@@ -58,6 +61,18 @@ const AppNavigator = () => {
         })}
       />
       <Tab.Screen name="Accounts" component={AccountsScreen} />
+      <Tab.Screen
+        name="Goals"
+        component={GoalsStackNavigator}
+        options={{ headerShown: false }}
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            if (navigation.isFocused()) {
+              navigation.navigate('Goals', { screen: 'GoalsOverview' });
+            }
+          },
+        })}
+      />
       <Tab.Screen
         name="More"
         component={MoreStackNavigator}

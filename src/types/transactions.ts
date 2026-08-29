@@ -54,6 +54,7 @@ export interface Transaction {
   refund_targets_count?: number;
   refund_allocated_out?: number;
   manual_groups?: ManualTransactionGroup[];
+  exclude_from_cap?: boolean | number;
 }
 
 export interface ManualTransactionGroup {

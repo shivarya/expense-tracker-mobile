@@ -272,6 +272,7 @@ const TransactionsScreen = () => {
   const [editNameModalVisible, setEditNameModalVisible] = useState(false);
   const [editNameText, setEditNameText] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
+  const [capExclusionSaving, setCapExclusionSaving] = useState(false);
   const [manualGroupModalVisible, setManualGroupModalVisible] = useState(false);
   const [manualGroupSelection, setManualGroupSelection] = useState<number[]>([]);
   const [manualGroupSaving, setManualGroupSaving] = useState(false);
@@ -734,6 +735,23 @@ const TransactionsScreen = () => {
       Alert.alert('Error', error?.message || 'Failed to update transaction name');
     } finally {
       setNameSaving(false);
+    }
+  };
+
+  const toggleCapExclusion = async (txn: Transaction) => {
+    const nextValue = !txn.exclude_from_cap;
+    try {
+      setCapExclusionSaving(true);
+      const res = await ApiService.updateTransactionCapExclusion(txn.id, nextValue);
+
+      setTransactions((prev) => prev.map((t) => (
+        t.id === txn.id ? { ...t, exclude_from_cap: res.exclude_from_cap } : t
+      )));
+      setDetailTxn((prev) => (prev && prev.id === txn.id ? { ...prev, exclude_from_cap: res.exclude_from_cap } : prev));
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to update cap exclusion');
+    } finally {
+      setCapExclusionSaving(false);
     }
   };
 
@@ -1318,6 +1336,13 @@ const TransactionsScreen = () => {
                   </View>
                 ) : null}
 
+                {detailTxn.transaction_type === 'debit' && detailTxn.exclude_from_cap ? (
+                  <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Monthly Cap</Text>
+                    <Text style={[styles.detailValue, { color: colors.warning }]}>Excluded</Text>
+                  </View>
+                ) : null}
+
                 <View style={styles.detailActionsRow}>
                   <TouchableOpacity
                     style={[styles.detailActionBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
@@ -1339,6 +1364,18 @@ const TransactionsScreen = () => {
                       onPress={() => openSplitEditor(detailTxn)}
                     >
                       <Text style={[styles.detailActionText, { color: colors.text }]}>Manage Split</Text>
+                    </TouchableOpacity>
+                  ) : null}
+
+                  {detailTxn.transaction_type === 'debit' ? (
+                    <TouchableOpacity
+                      style={[styles.detailActionBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
+                      onPress={() => toggleCapExclusion(detailTxn)}
+                      disabled={capExclusionSaving}
+                    >
+                      <Text style={[styles.detailActionText, { color: colors.text }]}>
+                        {detailTxn.exclude_from_cap ? 'Include in Cap' : 'Exclude from Cap'}
+                      </Text>
                     </TouchableOpacity>
                   ) : null}
 

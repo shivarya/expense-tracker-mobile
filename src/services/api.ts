@@ -538,6 +538,19 @@ class ApiService {
     return response.data.data;
   }
 
+  async updateTransactionCapExclusion(transactionId: number, exclude: boolean): Promise<{
+    id: number;
+    exclude_from_cap: boolean;
+  }> {
+    const response = await this.api.patch(`/transactions/${transactionId}/exclude-from-cap`, {
+      exclude_from_cap: exclude,
+    });
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to update cap exclusion');
+    }
+    return response.data.data;
+  }
+
   async getTransactionSplits(transactionId: number): Promise<TransactionSplitsResponse> {
     try {
       const response = await this.api.get<ApiResponse<TransactionSplitsResponse>>(`/transactions/${transactionId}/splits`);
