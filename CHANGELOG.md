@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.16] - 2026-08-29
+### Added
+- **Notification when you hit your Monthly Discretionary Cap**: once your discretionary spend crosses your cap for the month, you get a single notification (won't repeat again until next month).
+- **Tap a category inside the Spend Cap card**: it now shows a breakdown by category with amounts, and tapping one jumps straight to that category's transactions for the month — same as the Expenses tab.
+
+### Fixed
+- **Refund/reimbursement allocations now actually reduce what counts as spent.** Allocating a refund (or a spouse's reimbursement) to an expense previously only showed as a label on the transaction — it never lowered your Dashboard, Widget, or Spend Cap totals. Now it does, everywhere.
+- **Credit card bill payments no longer double-count as spend.** A payment towards your own credit card bill was sometimes categorized as a fresh expense on top of the card's own line items it was paying down. Now recognized as a Transfer and excluded from every spend total.
+- **Accounts page showed duplicate/misattributed accounts.** Cleaned up account records that had been split or mistyped due to a bank-account matching bug — your credit cards now show correctly named with the right transaction history instead of generic/duplicate entries. Also fixed a display bug that always showed "1234" as the masked digits regardless of the real card.
+
+### Google Play Notes
+- Get notified when you hit your monthly spending cap; tap any category inside the cap breakdown to see its transactions.
+- Refund/reimbursement allocations now actually reduce your spend totals everywhere, not just as a label.
+- Fixed credit card bill payments being double-counted as spend, and cleaned up duplicate/incorrect entries on the Accounts page.
+
 ## [2.7.15] - 2026-08-26
 ### Added
 - **"View breakdown" on the Monthly Discretionary Cap goal**: tap it to jump straight to your transactions for the month, pre-filtered to exactly the categories that make up your discretionary spend cap (everything except Rent/EMI, Investments, and Transfers).
