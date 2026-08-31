@@ -20,6 +20,7 @@ export type ExpensesStackParamList = {
     startDate?: string;
     endDate?: string;
     initialMonthKey?: 'current';
+    respectCapExclusions?: boolean;
   } | undefined;
   CategoriesSpend: {
     period?: 'cm' | '1m' | '3m' | '6m' | '1y';

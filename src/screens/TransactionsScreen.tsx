@@ -48,6 +48,8 @@ interface RouteParams {
   focusAmount?: number;
   focusCategoryId?: number;
   focusDescription?: string;
+  /** Set when arriving from the Spend Cap card, so totals match what actually counted toward the cap. */
+  respectCapExclusions?: boolean;
 }
 
 interface MonthOption {
@@ -361,10 +363,11 @@ const TransactionsScreen = () => {
       keyword: searchKeyword || undefined,
       min_amount: minAmount,
       max_amount: maxAmount,
+      respect_cap_exclusions: params.respectCapExclusions ? 1 : undefined,
       limit: PAGE_SIZE,
       offset,
     };
-  }, [maxAmount, minAmount, monthOptions, params.endDate, params.startDate, searchKeyword, selectedCategoryId, selectedCategoryIds, selectedGroupId, selectedManualGroupId, selectedMonth, selectedRange, selectedType, useRouteDateOverride]);
+  }, [maxAmount, minAmount, monthOptions, params.endDate, params.respectCapExclusions, params.startDate, searchKeyword, selectedCategoryId, selectedCategoryIds, selectedGroupId, selectedManualGroupId, selectedMonth, selectedRange, selectedType, useRouteDateOverride]);
 
   const fetchTransactions = useCallback(async (showLoader = true) => {
     try {

@@ -352,6 +352,7 @@ class ApiService {
     keyword?: string;
     min_amount?: number;
     max_amount?: number;
+    respect_cap_exclusions?: number;
     limit?: number;
     offset?: number;
   }): Promise<{ transactions: Transaction[]; summary: any; by_category: any[] }> {

@@ -371,6 +371,7 @@ const GoalsScreen = () => {
         startDate,
         endDate,
         headerTitle: goal.name || 'Discretionary Spend',
+        respectCapExclusions: true,
       },
     });
   };
@@ -390,6 +391,7 @@ const GoalsScreen = () => {
         startDate,
         endDate,
         headerTitle: cat.category_name,
+        respectCapExclusions: true,
       },
     });
   };
