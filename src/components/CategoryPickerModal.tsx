@@ -20,6 +20,8 @@ interface CategoryPickerModalProps {
   categories: Category[];
   onSelect: (categoryId: number) => void;
   currentCategoryId?: number;
+  /** When set, shown under the title so it's unmistakable which transaction a category change will apply to. */
+  subtitle?: string;
 }
 
 const CategoryPickerModal: React.FC<CategoryPickerModalProps> = ({
@@ -28,6 +30,7 @@ const CategoryPickerModal: React.FC<CategoryPickerModalProps> = ({
   categories,
   onSelect,
   currentCategoryId,
+  subtitle,
 }) => {
   const { colors, isDark } = useTheme();
 
@@ -91,7 +94,14 @@ const CategoryPickerModal: React.FC<CategoryPickerModalProps> = ({
 
           {/* Header */}
           <View style={styles.sheetHeader}>
-            <Text style={[styles.sheetTitle, { color: colors.text }]}>Choose Category</Text>
+            <View style={styles.sheetHeaderText}>
+              <Text style={[styles.sheetTitle, { color: colors.text }]}>Choose Category</Text>
+              {!!subtitle && (
+                <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {subtitle}
+                </Text>
+              )}
+            </View>
             <TouchableOpacity onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <Ionicons name="close-circle" size={26} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -142,10 +152,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
   },
+  sheetHeaderText: {
+    flex: 1,
+    marginRight: 12,
+  },
   sheetTitle: {
     fontSize: 18,
     fontWeight: '700',
     letterSpacing: -0.3,
+  },
+  sheetSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 2,
   },
   listContent: {
     paddingHorizontal: 12,

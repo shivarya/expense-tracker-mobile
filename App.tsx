@@ -111,15 +111,27 @@ function AppContent() {
   // container actually becomes ready, instead of relying on that no-retry
   // listener catching every case a cold start's blocking getInitialURL()
   // wait already handles fine.
+  //
+  // This must be a QUEUE, not a single slot: a burst of bank SMS produces one
+  // notification each, and if a second one arrives (or is tapped) before nav
+  // is ready, a single-slot "latest wins" ref silently discards the first tap
+  // -- which is exactly what caused category changes to land on the wrong
+  // transaction, since whichever link survived is the one that opened.
   const isNavigationReadyRef = React.useRef(false);
-  const pendingDeepLinkRef = React.useRef<{ url: string; listener: (url: string) => void } | null>(null);
+  const pendingActionsQueueRef = React.useRef<Array<() => void>>([]);
 
   const handleNavigationReady = React.useCallback(() => {
     isNavigationReadyRef.current = true;
-    if (pendingDeepLinkRef.current) {
-      const { url, listener } = pendingDeepLinkRef.current;
-      pendingDeepLinkRef.current = null;
-      listener(url);
+    const queued = pendingActionsQueueRef.current;
+    pendingActionsQueueRef.current = [];
+    queued.forEach((action) => action());
+  }, []);
+
+  const runOrQueue = React.useCallback((action: () => void) => {
+    if (isNavigationReadyRef.current) {
+      action();
+    } else {
+      pendingActionsQueueRef.current.push(action);
     }
   }, []);
 
@@ -129,39 +141,41 @@ function AppContent() {
     getStateFromPath: linkingGetStateFromPath,
     subscribe(listener) {
       const subscription = Linking.addEventListener('url', ({ url }) => {
-        if (isNavigationReadyRef.current) {
-          listener(url);
-        } else {
-          pendingDeepLinkRef.current = { url, listener };
-        }
+        runOrQueue(() => listener(url));
       });
 
       return () => subscription.remove();
     },
-  }), []);
+  }), [runOrQueue]);
 
   React.useEffect(() => {
+    // Same queue as the deep-link path above -- this listener used to bail
+    // out and drop the tap entirely when navigation wasn't ready yet instead
+    // of retrying, which is a second way an earlier notification tap could
+    // go missing while a later one (or an unrelated screen) took its place.
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as Record<string, any> | undefined;
-      if (!data?.transactionId || !navigationRef.isReady()) return;
+      if (!data?.transactionId) return;
 
-      navigationRef.navigate('Main', {
-        screen: 'Expenses',
-        params: {
-          screen: 'Transactions',
+      runOrQueue(() => {
+        navigationRef.navigate('Main', {
+          screen: 'Expenses',
           params: {
-            focusTransactionId: Number(data.transactionId),
-            focusMerchant: data.merchant ?? undefined,
-            focusAmount: data.amount !== undefined ? Number(data.amount) : undefined,
-            focusCategoryId: data.categoryId !== undefined ? Number(data.categoryId) : undefined,
-            focusDescription: data.description ?? undefined,
+            screen: 'Transactions',
+            params: {
+              focusTransactionId: Number(data.transactionId),
+              focusMerchant: data.merchant ?? undefined,
+              focusAmount: data.amount !== undefined ? Number(data.amount) : undefined,
+              focusCategoryId: data.categoryId !== undefined ? Number(data.categoryId) : undefined,
+              focusDescription: data.description ?? undefined,
+            },
           },
-        },
-      } as never);
+        } as never);
+      });
     });
 
     return () => subscription.remove();
-  }, []);
+  }, [runOrQueue]);
 
   return (
     <>

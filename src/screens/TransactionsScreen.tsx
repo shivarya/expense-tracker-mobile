@@ -1915,6 +1915,7 @@ const TransactionsScreen = () => {
         categories={categories}
         currentCategoryId={selectedTxn?.category_id}
         onSelect={onSelectTxnCategory}
+        subtitle={selectedTxn ? `${selectedTxn.merchant || selectedTxn.description || 'Transaction'} • ${formatCurrency(Number(selectedTxn.amount || 0), 2)} • ${formatTxnDateLocal(selectedTxn.transaction_date)}` : undefined}
       />
 
       <CategoryPickerModal
@@ -1932,6 +1933,7 @@ const TransactionsScreen = () => {
           setSplitCategoryPickerVisible(false);
           setActiveSplitIndex(null);
         }}
+        subtitle={activeSplitIndex != null ? `Split line ${activeSplitIndex + 1} • ₹${splitDrafts[activeSplitIndex]?.amountText || '0'}` : undefined}
       />
     </View>
   );
