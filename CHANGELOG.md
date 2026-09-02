@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.17] - 2026-09-02
+### Added
+- **Goals is now a direct bottom tab** instead of being tucked under More.
+- **Exclude specific categories from your Monthly Discretionary Cap.** Open the Spend Cap goal and pick any categories (e.g. a one-off Gift) to leave out entirely — their spend still shows up everywhere else, just not toward this cap.
+- **Upload an HDFC savings account statement PDF** from Statement Sync, alongside the existing SBI/ICICI credit card upload.
+
+### Fixed
+- **Notification tap could open/edit the wrong transaction.** A burst of bank SMS producing several notifications in quick succession could silently drop all but the last tap, or apply a category change to a different transaction than the one you tapped. Notification and deep-link taps are now queued and replayed in order. The category picker also now shows which transaction (merchant/amount/date) a change applies to, so it's never ambiguous.
+- **Spend Cap drill-down numbers didn't match the cap's own total.**
+- **"This Month" showed a transaction from the last day of the previous month.** Date-range boundaries were computed via UTC conversion, which shifts a local month-start midnight back a day in India time — visible right at the start of any month. Fixed on the Expenses "This Month" filter, the Transactions month picker, and the Dashboard's current-month total.
+
+### Google Play Notes
+- Goals is now a bottom tab. You can exclude specific categories from your Monthly Discretionary Cap.
+- Upload HDFC savings account statements from Statement Sync.
+- Fixed notification taps sometimes opening/editing the wrong transaction, a Spend Cap number mismatch, and "This Month" occasionally showing one transaction from the previous month.
+
 ## [2.7.16] - 2026-08-29
 ### Added
 - **Notification when you hit your Monthly Discretionary Cap**: once your discretionary spend crosses your cap for the month, you get a single notification (won't repeat again until next month).
