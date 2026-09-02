@@ -480,23 +480,26 @@ const GoalsScreen = () => {
         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No goals yet. Tap + Add Goal to set one.</Text>
       ) : (
         goals.map((goal) => (
-          <TouchableOpacity
+          <View
             key={goal.id}
             style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => navigation.navigate('AddGoal', { goalId: goal.id })}
-            activeOpacity={0.8}
           >
             <View style={styles.cardHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.goalName, { color: colors.text }]}>{goal.name}</Text>
                 <Text style={[styles.goalType, { color: colors.textSecondary }]}>{GOAL_TYPE_LABEL[goal.goal_type]}</Text>
               </View>
-              <TouchableOpacity onPress={() => deleteGoal(goal)} disabled={deletingId === goal.id} hitSlop={8}>
-                <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
-              </TouchableOpacity>
+              <View style={styles.cardHeaderActions}>
+                <TouchableOpacity onPress={() => navigation.navigate('AddGoal', { goalId: goal.id })} hitSlop={8}>
+                  <Ionicons name="create-outline" size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => deleteGoal(goal)} disabled={deletingId === goal.id} hitSlop={8}>
+                  <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
             </View>
             {renderProgress(goal)}
-          </TouchableOpacity>
+          </View>
         ))
       )}
     </ScrollView>
@@ -518,6 +521,7 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, textAlign: 'center', paddingVertical: 24 },
   card: { borderRadius: 12, borderWidth: 1, padding: 16, gap: 4 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  cardHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   goalName: { fontSize: 15, fontWeight: '700' },
   goalType: { fontSize: 11, marginTop: 2 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },

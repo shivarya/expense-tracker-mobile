@@ -21,7 +21,13 @@ const GoalsStackNavigator = () => {
       <Stack.Screen
         name="AddGoal"
         component={AddGoalScreen}
-        options={{ title: 'Add Goal' }}
+        options={({ route }) => ({
+          title: route.params?.mode === 'contribution'
+            ? 'Log Contribution'
+            : route.params?.goalId
+            ? 'Edit Goal'
+            : 'Add Goal',
+        })}
       />
     </Stack.Navigator>
   );
