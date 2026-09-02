@@ -16,7 +16,10 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useData } from '../contexts/DataContext';
 import { StatementUploadResult } from '../types/transactions';
 
-type SupportedBank = 'sbi' | 'icici';
+type SupportedBank = 'sbi' | 'icici' | 'hdfc';
+
+const getAccountTypeForBank = (bank: SupportedBank): 'credit_card' | 'savings' =>
+  bank === 'hdfc' ? 'savings' : 'credit_card';
 
 const getApiErrorMessage = (error: any, fallback: string): string => {
   const serverMessage = error?.response?.data?.error;
@@ -42,15 +45,21 @@ const StatementSyncScreen = () => {
   const [isRemovingPassword, setIsRemovingPassword] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
+  const selectedAccountType = getAccountTypeForBank(selectedBank);
+  const isCardBank = selectedAccountType === 'credit_card';
+
   const trimmedCardLastFour = useMemo(() => {
     const digits = cardLastFour.replace(/\D+/g, '');
     return digits.slice(-4);
   }, [cardLastFour]);
 
   const hasPartialCardDigits = useMemo(() => {
+    if (!isCardBank) {
+      return false;
+    }
     const digits = cardLastFour.replace(/\D+/g, '');
     return digits.length > 0 && digits.length < 4;
-  }, [cardLastFour]);
+  }, [cardLastFour, isCardBank]);
 
   const handlePickPdf = async () => {
     try {
@@ -92,8 +101,8 @@ const StatementSyncScreen = () => {
       setIsSavingPassword(true);
       await ApiService.saveStatementPassword({
         bank: selectedBank,
-        account_type: 'credit_card',
-        card_last_four: trimmedCardLastFour,
+        account_type: selectedAccountType,
+        card_last_four: isCardBank ? trimmedCardLastFour : '',
         password: statementPassword,
       });
       setHasSavedPassword(true);
@@ -112,7 +121,7 @@ const StatementSyncScreen = () => {
       return;
     }
 
-    const removeMessage = trimmedCardLastFour.length === 4
+    const removeMessage = isCardBank && trimmedCardLastFour.length === 4
       ? 'This will remove the stored statement password for this card.'
       : 'This will remove all saved statement passwords for this bank.';
 
@@ -126,8 +135,8 @@ const StatementSyncScreen = () => {
             setIsRemovingPassword(true);
             await ApiService.deleteStatementPassword({
               bank: selectedBank,
-              account_type: 'credit_card',
-              card_last_four: trimmedCardLastFour,
+              account_type: selectedAccountType,
+              card_last_four: isCardBank ? trimmedCardLastFour : '',
             });
             setHasSavedPassword(false);
             Alert.alert('Removed', 'Saved statement password was removed.');
@@ -158,8 +167,8 @@ const StatementSyncScreen = () => {
 
       const result = await ApiService.uploadStatementPdf({
         bank: selectedBank,
-        account_type: 'credit_card',
-        card_last_four: trimmedCardLastFour,
+        account_type: selectedAccountType,
+        card_last_four: isCardBank ? trimmedCardLastFour : '',
         fileUri: selectedFile.uri,
         fileName: selectedFile.name,
         mimeType: selectedFile.mimeType || 'application/pdf',
@@ -188,10 +197,10 @@ const StatementSyncScreen = () => {
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
       <View style={[styles.section, { backgroundColor: colors.card }]}> 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Statement Sync</Text>
-        <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>Upload password-protected SBI or ICICI credit card statement PDF. New transactions are synced and high-confidence duplicates are skipped.</Text>
+        <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>Upload a password-protected SBI or ICICI credit card statement, or an HDFC savings account statement PDF. New transactions are synced and high-confidence duplicates are skipped.</Text>
 
         <View style={styles.bankSelectorRow}>
-          {(['sbi', 'icici'] as SupportedBank[]).map((bank) => {
+          {(['sbi', 'icici', 'hdfc'] as SupportedBank[]).map((bank) => {
             const isSelected = selectedBank === bank;
             return (
               <TouchableOpacity
@@ -217,21 +226,29 @@ const StatementSyncScreen = () => {
           })}
         </View>
 
-        <Text style={[styles.label, { color: colors.text }]}>Card Last 4 Digits (Optional)</Text>
-        <TextInput
-          value={cardLastFour}
-          onChangeText={setCardLastFour}
-          keyboardType="number-pad"
-          maxLength={4}
-          placeholder="Optional - e.g. 6529"
-          placeholderTextColor={colors.placeholder}
-          style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
-        />
+        {isCardBank && (
+          <>
+            <Text style={[styles.label, { color: colors.text }]}>Card Last 4 Digits (Optional)</Text>
+            <TextInput
+              value={cardLastFour}
+              onChangeText={setCardLastFour}
+              keyboardType="number-pad"
+              maxLength={4}
+              placeholder="Optional - e.g. 6529"
+              placeholderTextColor={colors.placeholder}
+              style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+            />
+          </>
+        )}
       </View>
 
       <View style={[styles.section, { backgroundColor: colors.card }]}> 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Secure Password Setup</Text>
-        <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>Save password once on the server vault. If card last 4 digits is empty, upload will try all saved passwords for {selectedBank.toUpperCase()}.</Text>
+        <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
+          {isCardBank
+            ? `Save password once on the server vault. If card last 4 digits is empty, upload will try all saved passwords for ${selectedBank.toUpperCase()}.`
+            : `Save your HDFC net banking / SmartStatement password once on the server vault.`}
+        </Text>
 
         <TextInput
           value={statementPassword}
