@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.18] - 2026-09-02
+### Changed
+- **Goals now have a dedicated Edit button.** Tapping anywhere on a goal card used to silently open edit mode with no visual cue, which made "Exclude Categories" on the Spend Cap goal hard to find. There's now a pencil icon next to delete, and the screen title reads "Edit Goal" instead of always "Add Goal".
+
+### Google Play Notes
+- Goals now have a clear Edit (pencil) button instead of relying on tapping the whole card.
+
 ## [2.7.17] - 2026-09-02
 ### Added
 - **Goals is now a direct bottom tab** instead of being tucked under More.
