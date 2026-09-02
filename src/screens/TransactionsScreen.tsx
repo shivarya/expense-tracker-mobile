@@ -24,7 +24,7 @@ import {
   RefundAllocation,
 } from '../types/transactions';
 import ApiService from '../services/api';
-import { formatCurrency, formatOriginalCurrency } from '../utils/format';
+import { formatCurrency, formatOriginalCurrency, toLocalDateString } from '../utils/format';
 import CategoryPickerModal from '../components/CategoryPickerModal';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 
@@ -65,7 +65,7 @@ interface SplitDraftLine {
   notes?: string;
 }
 
-const formatDate = (date: Date) => date.toISOString().split('T')[0];
+const formatDate = (date: Date) => toLocalDateString(date);
 
 const getCurrentMonthKey = () => {
   const now = new Date();

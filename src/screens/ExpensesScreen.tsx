@@ -14,7 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PieChart, BarChart } from 'react-native-gifted-charts';
 import { useTheme } from '../contexts/ThemeContext';
-import { formatCurrency, formatCompactCurrency } from '../utils/format';
+import { formatCurrency, formatCompactCurrency, toLocalDateString } from '../utils/format';
 import ApiService from '../services/api';
 import { TransactionGroup } from '../types/transactions';
 
@@ -87,7 +87,7 @@ const getMonthLabel = (monthStr: string) => {
 const getCategoryIcon = (name: string) =>
   CATEGORY_ICONS[name] ?? CATEGORY_ICONS[name?.toLowerCase()] ?? '📦';
 
-const toISODate = (date: Date) => date.toISOString().split('T')[0];
+const toISODate = (date: Date) => toLocalDateString(date);
 
 /** Fill in missing months so the chart always shows every month in the period */
 const fillMissingMonths = (trends: MonthlyExpense[], startDate: string): MonthlyExpense[] => {

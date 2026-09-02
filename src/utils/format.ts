@@ -81,6 +81,20 @@ export const formatPercent = (value: number, decimals: number = 2): string => {
 };
 
 /**
+ * Local calendar-day string (YYYY-MM-DD) for a Date, safe for building API
+ * date-range params. Do not use toISOString() for this: it converts to UTC
+ * first, so in any timezone ahead of UTC (e.g. IST, UTC+5:30) a local
+ * midnight boundary like "1st of this month" shifts back to the previous
+ * day, leaking the prior month's last day into "this month" queries.
+ */
+export const toLocalDateString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
  * Format date in Indian locale
  * @param date - Date to format
  * @returns Formatted string like "20/01/2026"

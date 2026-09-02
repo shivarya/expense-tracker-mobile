@@ -15,7 +15,7 @@ import { useData } from '../contexts/DataContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { PieChart } from 'react-native-gifted-charts';
-import { formatCurrency, formatCompactCurrency, formatPercent } from '../utils/format';
+import { formatCurrency, formatCompactCurrency, formatPercent, toLocalDateString } from '../utils/format';
 import ApiService from '../services/api';
 import { Category } from '../types/transactions';
 import CategoryPickerModal from '../components/CategoryPickerModal';
@@ -49,8 +49,7 @@ const DashboardScreen = () => {
       const now = new Date();
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
       const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      const fmt = (d: Date) => d.toISOString().split('T')[0];
-      const result = await ApiService.getTransactions({ start_date: fmt(start), end_date: fmt(end), type: 'debit', limit: 200 });
+      const result = await ApiService.getTransactions({ start_date: toLocalDateString(start), end_date: toLocalDateString(end), type: 'debit', limit: 200 });
       const total = result.summary?.total_debit
         ?? result.transactions?.reduce((s: number, t: any) => s + Number(t.amount || 0), 0)
         ?? 0;
