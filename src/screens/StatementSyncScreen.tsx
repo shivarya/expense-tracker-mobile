@@ -16,10 +16,24 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useData } from '../contexts/DataContext';
 import { StatementUploadResult } from '../types/transactions';
 
-type SupportedBank = 'sbi' | 'icici' | 'hdfc';
+// 'sbi_savings' is a UI-only distinction — SBI supports both a credit-card
+// statement and a savings-account (CAS) e-statement, which need different
+// account_type values on the wire; getWireBank()/getAccountTypeForBank()
+// below map this back to the real { bank, account_type } pair the server
+// expects (bank is always plain 'sbi').
+type SupportedBank = 'sbi' | 'icici' | 'hdfc' | 'sbi_savings';
+
+const BANK_LABELS: Record<SupportedBank, string> = {
+  sbi: 'SBI',
+  icici: 'ICICI',
+  hdfc: 'HDFC',
+  sbi_savings: 'SBI Savings',
+};
+
+const getWireBank = (bank: SupportedBank): string => (bank === 'sbi_savings' ? 'sbi' : bank);
 
 const getAccountTypeForBank = (bank: SupportedBank): 'credit_card' | 'savings' =>
-  bank === 'hdfc' ? 'savings' : 'credit_card';
+  (bank === 'hdfc' || bank === 'sbi_savings') ? 'savings' : 'credit_card';
 
 const getApiErrorMessage = (error: any, fallback: string): string => {
   const serverMessage = error?.response?.data?.error;
@@ -100,7 +114,7 @@ const StatementSyncScreen = () => {
     try {
       setIsSavingPassword(true);
       await ApiService.saveStatementPassword({
-        bank: selectedBank,
+        bank: getWireBank(selectedBank),
         account_type: selectedAccountType,
         card_last_four: isCardBank ? trimmedCardLastFour : '',
         password: statementPassword,
@@ -134,7 +148,7 @@ const StatementSyncScreen = () => {
           try {
             setIsRemovingPassword(true);
             await ApiService.deleteStatementPassword({
-              bank: selectedBank,
+              bank: getWireBank(selectedBank),
               account_type: selectedAccountType,
               card_last_four: isCardBank ? trimmedCardLastFour : '',
             });
@@ -166,7 +180,7 @@ const StatementSyncScreen = () => {
       setSyncResult(null);
 
       const result = await ApiService.uploadStatementPdf({
-        bank: selectedBank,
+        bank: getWireBank(selectedBank),
         account_type: selectedAccountType,
         card_last_four: isCardBank ? trimmedCardLastFour : '',
         fileUri: selectedFile.uri,
@@ -198,10 +212,10 @@ const StatementSyncScreen = () => {
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
       <View style={[styles.section, { backgroundColor: colors.card }]}> 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Statement Sync</Text>
-        <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>Upload a password-protected SBI or ICICI credit card statement, or an HDFC savings account statement PDF. New transactions are synced and high-confidence duplicates are skipped.</Text>
+        <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>Upload a password-protected SBI or ICICI credit card statement, an HDFC savings account statement, or an SBI savings (CAS) e-statement PDF. New transactions are synced and high-confidence duplicates are skipped.</Text>
 
         <View style={styles.bankSelectorRow}>
-          {(['sbi', 'icici', 'hdfc'] as SupportedBank[]).map((bank) => {
+          {(['sbi', 'icici', 'hdfc', 'sbi_savings'] as SupportedBank[]).map((bank) => {
             const isSelected = selectedBank === bank;
             return (
               <TouchableOpacity
@@ -220,7 +234,7 @@ const StatementSyncScreen = () => {
                 }}
               >
                 <Text style={[styles.bankChipText, { color: isSelected ? colors.background : colors.text }]}>
-                  {bank.toUpperCase()}
+                  {BANK_LABELS[bank]}
                 </Text>
               </TouchableOpacity>
             );
@@ -247,8 +261,8 @@ const StatementSyncScreen = () => {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Secure Password Setup</Text>
         <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
           {isCardBank
-            ? `Save password once on the server vault. If card last 4 digits is empty, upload will try all saved passwords for ${selectedBank.toUpperCase()}.`
-            : `Save your HDFC net banking / SmartStatement password once on the server vault.`}
+            ? `Save password once on the server vault. If card last 4 digits is empty, upload will try all saved passwords for ${BANK_LABELS[selectedBank]}.`
+            : `Save your ${BANK_LABELS[selectedBank]} net banking / e-statement password once on the server vault.`}
         </Text>
 
         <TextInput
@@ -294,8 +308,8 @@ const StatementSyncScreen = () => {
 
         <Text style={[styles.hint, { color: hasSavedPassword ? colors.success : colors.textSecondary }]}>
           {hasSavedPassword
-            ? `${selectedBank.toUpperCase()} password saved in this session.`
-            : `Save one or more ${selectedBank.toUpperCase()} passwords before uploading statement PDF.`}
+            ? `${BANK_LABELS[selectedBank]} password saved in this session.`
+            : `Save one or more ${BANK_LABELS[selectedBank]} passwords before uploading statement PDF.`}
         </Text>
       </View>
 
