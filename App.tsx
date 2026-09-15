@@ -75,7 +75,27 @@ const linkingConfig = {
           },
         },
         Accounts: 'accounts',
-        More: 'more',
+        Goals: {
+          screens: {
+            GoalsOverview: 'goals',
+            AddGoal: 'goals/add',
+          },
+        },
+        More: {
+          screens: {
+            MoreHome: 'more',
+            TrustedContacts: 'more/contacts',
+            Categories: 'more/categories',
+            Groups: 'more/groups',
+            ManualGroups: 'more/manual-groups',
+            StatementSync: 'more/statement-sync',
+            GmailSync: 'more/gmail-sync',
+            Paywall: 'more/premium',
+            AddInvestment: 'more/add-investment',
+            Subscriptions: 'more/subscriptions',
+            AddSubscription: 'more/subscriptions/add',
+          },
+        },
       },
     },
   },
@@ -136,7 +156,7 @@ function AppContent() {
   }, []);
 
   const linking = React.useMemo<LinkingOptions<any>>(() => ({
-    prefixes: ['expensetracker://'],
+    prefixes: ['expensetracker://', 'https://shivarya.dev/expense_tracker/app'],
     config: linkingConfig,
     getStateFromPath: linkingGetStateFromPath,
     subscribe(listener) {

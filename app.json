@@ -34,7 +34,11 @@
       ]
     },
     "web": {
+      "bundler": "metro",
       "favicon": "./assets/images/favicon.png"
+    },
+    "experiments": {
+      "baseUrl": "/expense_tracker/app"
     },
     "plugins": [
       "@react-native-google-signin/google-signin",

@@ -9,15 +9,7 @@ import {
 } from 'react-native';
 import Constants from 'expo-constants';
 import { useAuth } from '../contexts/AuthContext';
-
-const getGoogleSigninModule = () => {
-  try {
-    return require('@react-native-google-signin/google-signin');
-  } catch (error) {
-    console.warn('[LoginScreen] Google Sign-In module unavailable:', error);
-    return null;
-  }
-};
+import { GoogleSignin, statusCodes } from '../services/googleAuthBridge';
 
 // Get Google Client ID from app config (loaded from .env)
 const GOOGLE_WEB_CLIENT_ID = Constants.expoConfig?.extra?.googleClientId || '';
@@ -27,18 +19,6 @@ const LoginScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const handleGoogleLogin = async () => {
-    const googleSigninModule = getGoogleSigninModule();
-    const GoogleSignin = googleSigninModule?.GoogleSignin;
-    const statusCodes = googleSigninModule?.statusCodes || {};
-
-    if (!GoogleSignin?.signIn) {
-      Alert.alert(
-        'Google Sign-In Unavailable',
-        'Google Sign-In is not available in this build. Please install the latest app build.'
-      );
-      return;
-    }
-
     if (GOOGLE_WEB_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID_HERE') {
       Alert.alert(
         'Configuration Required',

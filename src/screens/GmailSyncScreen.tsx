@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -261,6 +262,10 @@ const GmailSyncScreen = () => {
             <Ionicons name="log-out-outline" size={18} color={colors.text} />
             <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Disconnect Gmail</Text>
           </TouchableOpacity>
+        ) : Platform.OS === 'web' ? (
+          <Text style={[styles.hint, { color: colors.textSecondary }]}>
+            Connect Gmail from the mobile app — it isn't available on web yet.
+          </Text>
         ) : (
           <TouchableOpacity
             style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: isConnecting ? 0.7 : 1 }]}

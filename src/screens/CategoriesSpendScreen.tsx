@@ -60,6 +60,8 @@ const CategoriesSpendScreen = () => {
       if (showLoader) setLoading(true);
       const res = await ApiService.getExpenseSummary(period, selectedGroupId);
       setData(res);
+    } catch {
+      setData(null);
     } finally {
       setLoading(false);
       setRefreshing(false);

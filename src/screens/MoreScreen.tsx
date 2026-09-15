@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking, Switch, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -203,20 +203,22 @@ const MoreScreen = () => {
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Data Sync</Text>
         
-        <TouchableOpacity
-          style={[styles.syncButton, { backgroundColor: isSyncing ? colors.border : colors.primary }]}
-          onPress={handleSyncSMS}
-          disabled={isSyncing}
-        >
-          {isSyncing ? (
-            <ActivityIndicator color={colors.background} />
-          ) : (
-            <>
-              <Ionicons name="phone-portrait-outline" size={24} color={colors.background} />
-              <Text style={[styles.syncButtonText, { color: colors.background }]}>Sync SMS Transactions</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        {Platform.OS !== 'web' && (
+          <TouchableOpacity
+            style={[styles.syncButton, { backgroundColor: isSyncing ? colors.border : colors.primary }]}
+            onPress={handleSyncSMS}
+            disabled={isSyncing}
+          >
+            {isSyncing ? (
+              <ActivityIndicator color={colors.background} />
+            ) : (
+              <>
+                <Ionicons name="phone-portrait-outline" size={24} color={colors.background} />
+                <Text style={[styles.syncButtonText, { color: colors.background }]}>Sync SMS Transactions</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={[styles.syncButton, { backgroundColor: colors.info }]}
@@ -250,14 +252,16 @@ const MoreScreen = () => {
           <Text style={[styles.syncButtonText, { color: colors.background }]}>Go Premium</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.resetButton, { backgroundColor: colors.border }]}
-          onPress={handleResyncLast30Days}
-          disabled={isSyncing}
-        >
-          <Ionicons name="sync-outline" size={20} color={colors.text} />
-          <Text style={[styles.resetButtonText, { color: colors.text }]}>Re-sync Last 30 Days Now</Text>
-        </TouchableOpacity>
+        {Platform.OS !== 'web' && (
+          <TouchableOpacity
+            style={[styles.resetButton, { backgroundColor: colors.border }]}
+            onPress={handleResyncLast30Days}
+            disabled={isSyncing}
+          >
+            <Ionicons name="sync-outline" size={20} color={colors.text} />
+            <Text style={[styles.resetButtonText, { color: colors.text }]}>Re-sync Last 30 Days Now</Text>
+          </TouchableOpacity>
+        )}
 
         {isRealtimeBridgeAvailable && (
           <TouchableOpacity
@@ -269,71 +273,77 @@ const MoreScreen = () => {
           </TouchableOpacity>
         )}
 
-        <View style={styles.syncInfo}>
-          <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
-            Last synced: {formatLastSync()}
-          </Text>
-          <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
-            Auto sync mode: Real-time + Daily fallback
-          </Text>
-          <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
-            Real-time listener: {isRealtimeBridgeAvailable ? 'Enabled' : 'Unavailable in this build'}
-          </Text>
-          <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
-            Last auto sync: {formatLastAutoSync()}
-          </Text>
-          <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
-            Use "Re-sync Last 30 Days Now" to verify any possibly missed transactions.
-          </Text>
-          {lastAutoSyncResult && (
+        {Platform.OS !== 'web' && (
+          <View style={styles.syncInfo}>
             <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
-              Last auto result: saved {lastAutoSyncResult.saved} ({lastAutoSyncResult.savedDebitCount} debit, {lastAutoSyncResult.savedCreditCount} credit)
+              Last synced: {formatLastSync()}
             </Text>
-          )}
-          {syncResult && (
-            <Text style={[styles.syncResult, { color: colors.text }]}>
-              {syncResult}
+            <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
+              Auto sync mode: Real-time + Daily fallback
             </Text>
-          )}
-        </View>
+            <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
+              Real-time listener: {isRealtimeBridgeAvailable ? 'Enabled' : 'Unavailable in this build'}
+            </Text>
+            <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
+              Last auto sync: {formatLastAutoSync()}
+            </Text>
+            <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
+              Use "Re-sync Last 30 Days Now" to verify any possibly missed transactions.
+            </Text>
+            {lastAutoSyncResult && (
+              <Text style={[styles.syncInfoText, { color: colors.textSecondary }]}>
+                Last auto result: saved {lastAutoSyncResult.saved} ({lastAutoSyncResult.savedDebitCount} debit, {lastAutoSyncResult.savedCreditCount} credit)
+              </Text>
+            )}
+            {syncResult && (
+              <Text style={[styles.syncResult, { color: colors.text }]}>
+                {syncResult}
+              </Text>
+            )}
+          </View>
+        )}
 
-        <View style={[styles.infoCard, { borderBottomColor: colors.border }]}>
-          <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-            Automatically reads bank SMS from your phone and creates expense transactions using AI.
-          </Text>
-        </View>
+        {Platform.OS !== 'web' && (
+          <View style={[styles.infoCard, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+              Automatically reads bank SMS from your phone and creates expense transactions using AI.
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Security */}
-      <View style={[styles.section, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Security</Text>
+      {Platform.OS !== 'web' && (
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Security</Text>
 
-        <View style={styles.lockRow}>
-          <View style={styles.menuLeft}>
-            <Ionicons name="lock-closed-outline" size={24} color={colors.primary} />
-            <Text style={[styles.menuLabel, { color: colors.text }]}>Require unlock</Text>
+          <View style={styles.lockRow}>
+            <View style={styles.menuLeft}>
+              <Ionicons name="lock-closed-outline" size={24} color={colors.primary} />
+              <Text style={[styles.menuLabel, { color: colors.text }]}>Require unlock</Text>
+            </View>
+            <Switch
+              value={lockEnabled}
+              onValueChange={handleToggleAppLock}
+              disabled={!biometricAvailable && !lockEnabled}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.surface}
+            />
           </View>
-          <Switch
-            value={lockEnabled}
-            onValueChange={handleToggleAppLock}
-            disabled={!biometricAvailable && !lockEnabled}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor={colors.surface}
-          />
-        </View>
 
-        {biometricAvailable ? (
-          <Text style={[styles.lockHint, { color: colors.textSecondary }]}>
-            Ask for {biometricLabel} when you open the app or return after a while. Your balances stay hidden in the app switcher and screenshots are blocked while this is on.
-          </Text>
-        ) : (
-          <TouchableOpacity onPress={() => Linking.openSettings()}>
+          {biometricAvailable ? (
             <Text style={[styles.lockHint, { color: colors.textSecondary }]}>
-              No fingerprint or face unlock is set up on this device. Tap to open device settings, then turn this on.
+              Ask for {biometricLabel} when you open the app or return after a while. Your balances stay hidden in the app switcher and screenshots are blocked while this is on.
             </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+          ) : (
+            <TouchableOpacity onPress={() => Linking.openSettings()}>
+              <Text style={[styles.lockHint, { color: colors.textSecondary }]}>
+                No fingerprint or face unlock is set up on this device. Tap to open device settings, then turn this on.
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* Theme Settings */}
       <View style={[styles.section, { backgroundColor: colors.card }]}>

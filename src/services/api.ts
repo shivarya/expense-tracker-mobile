@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { GoogleSignin } from './googleAuthBridge';
 import { ApiResponse, DashboardData } from '../types/dashboard';
 import { Investments } from '../types/investments';
 import { WidgetSummary } from '../types/widget';
@@ -34,6 +35,8 @@ interface StatementUploadPayload {
   fileUri: string;
   fileName: string;
   mimeType?: string;
+  /** Web only: the real browser File/Blob from expo-document-picker's web result. */
+  file?: Blob;
 }
 
 // Decode JWT payload without a library (works in React Native)
@@ -223,10 +226,6 @@ class ApiService {
 
   /** Attempt silent Google re-auth and exchange for a fresh server JWT. */
   private async silentRefreshToken(): Promise<string> {
-    const googleSigninModule = require('@react-native-google-signin/google-signin');
-    const GoogleSignin = googleSigninModule?.GoogleSignin;
-    if (!GoogleSignin) throw new Error('GoogleSignin module unavailable');
-
     const Constants = require('expo-constants').default;
     const extra = Constants.expoConfig?.extra || {};
     GoogleSignin.configure({
@@ -891,10 +890,6 @@ class ApiService {
 
   // Gmail integration — connect read-only Gmail so the server can auto-fetch statements
   async connectGmail(): Promise<{ connected: boolean; email?: string }> {
-    const googleSigninModule = require('@react-native-google-signin/google-signin');
-    const GoogleSignin = googleSigninModule?.GoogleSignin;
-    if (!GoogleSignin) throw new Error('GoogleSignin module unavailable');
-
     const Constants = require('expo-constants').default;
     const extra = Constants.expoConfig?.extra || {};
     const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
@@ -1096,11 +1091,15 @@ class ApiService {
       formData.append('card_last_four', payload.card_last_four);
     }
 
-    formData.append('statement_pdf', {
-      uri: payload.fileUri,
-      name: payload.fileName,
-      type: payload.mimeType || 'application/pdf',
-    } as any);
+    if (Platform.OS === 'web' && payload.file) {
+      formData.append('statement_pdf', payload.file, payload.fileName);
+    } else {
+      formData.append('statement_pdf', {
+        uri: payload.fileUri,
+        name: payload.fileName,
+        type: payload.mimeType || 'application/pdf',
+      } as any);
+    }
 
     const response = await this.api.post<ApiResponse<StatementUploadResult>>('/statements/upload', formData, {
       headers: {

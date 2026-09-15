@@ -172,6 +172,7 @@ const StatementSyncScreen = () => {
         fileUri: selectedFile.uri,
         fileName: selectedFile.name,
         mimeType: selectedFile.mimeType || 'application/pdf',
+        file: selectedFile.file,
       });
 
       setSyncResult(result);
