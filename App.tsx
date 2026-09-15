@@ -11,6 +11,9 @@ import { AuthProvider } from './src/contexts/AuthContext';
 import { AppLockProvider, useAppLock } from './src/contexts/AppLockContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import AppLockOverlay from './src/components/AppLockOverlay';
+import { installWebAlertPolyfill } from './src/utils/webAlertPolyfill';
+
+installWebAlertPolyfill();
 
 const parseNumberParam = (value: string | null): number | undefined => {
   if (!value) return undefined;

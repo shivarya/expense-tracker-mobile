@@ -1102,9 +1102,16 @@ class ApiService {
     }
 
     const response = await this.api.post<ApiResponse<StatementUploadResult>>('/statements/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+      // Web only: a real browser FormData needs the browser's own XHR/fetch
+      // layer to compute the multipart boundary and set Content-Type itself.
+      // this.api's axios instance has a default Content-Type: application/json
+      // (see the constructor) — an *absent* per-call headers config just
+      // inherits that default rather than clearing it, so the key must be
+      // explicitly set to undefined here to actually remove it. Native's
+      // {uri,name,type} FormData shape needs this header set explicitly
+      // instead, since RN's networking layer (unlike a browser) doesn't
+      // auto-compute the boundary the same way.
+      headers: Platform.OS === 'web' ? { 'Content-Type': undefined } : { 'Content-Type': 'multipart/form-data' },
       timeout: 120000,
     });
 
