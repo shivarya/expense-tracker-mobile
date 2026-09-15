@@ -1,8 +1,8 @@
 import 'react-native-gesture-handler';
 import React from 'react';
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer, DefaultTheme, DarkTheme, LinkingOptions, getStateFromPath, createNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme, LinkingOptions, getStateFromPath, getPathFromState, createNavigationContainerRef } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { DataProvider } from './src/contexts/DataContext';
@@ -113,6 +113,22 @@ const linkingGetStateFromPath: LinkingOptions<any>['getStateFromPath'] = (path, 
   return state;
 };
 
+// Web-only: the deployed subpath (see mobile/app.json's experiments.baseUrl,
+// which matches this same value for Metro's own asset/script paths). Parsing
+// an incoming URL already strips this correctly via `prefixes` below, but
+// generating a URL for the address bar on internal navigation does NOT
+// automatically re-add it — React Navigation's own path generation only
+// knows about `linkingConfig.screens`, never the deploy subfolder. Without
+// this, clicking any tab silently rewrites the address bar to a root-level
+// URL (e.g. shivarya.dev/dashboard instead of .../expense_tracker/app/
+// dashboard) that 404s / falls into the PHP router on refresh or reshare.
+const WEB_BASE_PATH = '/expense_tracker/app';
+
+const linkingGetPathFromState: LinkingOptions<any>['getPathFromState'] = (state, options) => {
+  const path = getPathFromState(state, options);
+  return Platform.OS === 'web' ? `${WEB_BASE_PATH}${path}` : path;
+};
+
 export const navigationRef = createNavigationContainerRef<any>();
 
 function AppContent() {
@@ -156,9 +172,10 @@ function AppContent() {
   }, []);
 
   const linking = React.useMemo<LinkingOptions<any>>(() => ({
-    prefixes: ['expensetracker://', 'https://shivarya.dev/expense_tracker/app'],
+    prefixes: ['expensetracker://', `https://shivarya.dev${WEB_BASE_PATH}`],
     config: linkingConfig,
     getStateFromPath: linkingGetStateFromPath,
+    getPathFromState: linkingGetPathFromState,
     subscribe(listener) {
       const subscription = Linking.addEventListener('url', ({ url }) => {
         runOrQueue(() => listener(url));
