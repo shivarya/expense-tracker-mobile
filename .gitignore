@@ -72,3 +72,6 @@ GoogleService-Info.plist
 *.tmp
 .cache
 bugreport-sdk_gphone64_x86_64-BE4B.251210.005-2026-03-14-20-51-47.zip
+
+# Local release outputs (AAB/APK) — never commit
+build-artifacts/
