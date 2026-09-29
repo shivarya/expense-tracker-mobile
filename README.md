@@ -1,3 +1,5 @@
+> **Archived (2026-09-29).** This React Native / Expo app has been replaced by a native Kotlin/Compose Android app and a React + Tailwind web app, which ship as an in-place update of the same Play package (`dev.shivarya.expensetracker`). The code here is kept for reference and as a rollback path only. See `expense-tracker-android` and `expense-tracker-web`.
+
 # Expense Tracker - Mobile App
 
 React Native mobile app for expense tracking and portfolio management.
